@@ -32,7 +32,7 @@ ENV/
 *.ipynb_checkpoints
 
 # Data directories (should not be committed)
-data/
+data/raw/
 
 # Models and checkpoints
 models/*.pth
