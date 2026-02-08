@@ -23,8 +23,9 @@ from sklearn.metrics import (
     roc_auc_score, roc_curve, auc
 )
 
-from .architectures import create_model, get_available_architectures
-from .architectures.custom_cnn import create_baseline_cnn
+from .architectures import get_available_architectures
+from .load_model import load_model_from_config
+from src.data.transforms import TransformFactory, DEFAULT_TRANSFORM_CONFIG
 
 
 @dataclass
@@ -46,6 +47,9 @@ class TrainingConfig:
     optimizer: str = 'adam'  # 'adam' or 'sgd'
     optimizer_params: Optional[Dict[str, Any]] = None
     loss_function: str = 'cross_entropy'  # 'cross_entropy' or 'focal'
+
+    # Training Transforms
+    transforms: Dict[str, Any] = None
     
     # K-fold cross-validation
     k_folds: int = 5
@@ -70,34 +74,14 @@ class TrainingConfig:
 
 
 def setup_model(config: TrainingConfig) -> nn.Module:
-    """
-    Create and configure model based on training config.
-    
-    Args:
-        config: Training configuration
-        
-    Returns:
-        Configured model ready for training
-    """
-    device = torch.device(config.device)
-    
-    # Handle baseline CNN separately since it has different parameters
-    if config.architecture.lower() in ['baseline_cnn', 'custom_cnn', 'cnn']:
-        model = create_baseline_cnn(
-            num_classes=config.num_classes,
-            device=device,
-            **config.model_params
-        )
-    else:
-        # For other architectures
-        model = create_model(
-            architecture=config.architecture,
-            num_classes=config.num_classes,
-            pretrained=config.pretrained,
-            device=device
-        )
-    
-    return model
+    """Create model from training config."""
+    return load_model_from_config(
+        architecture=config.architecture,
+        num_classes=config.num_classes,
+        pretrained=config.pretrained,
+        model_params=config.model_params,
+        device=config.device
+    )
 
 
 def configure_training_mode(model: nn.Module, mode: str) -> None:

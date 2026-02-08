@@ -13,6 +13,12 @@ from pathlib import Path
 from typing import Optional, Union
 
 from .architectures import create_model, get_available_architectures
+from src.data.transforms import (
+    get_val_transform,
+    load_transform_config,
+    create_transforms_from_config,
+    DEFAULT_TRANSFORM_CONFIG
+)
 
 
 def load_model(
@@ -20,13 +26,15 @@ def load_model(
     architecture: str = 'resnet18',
     num_classes: int = 2,
     device: Optional[torch.device] = None,
-    eval_mode: bool = True
-) -> nn.Module:
+    eval_mode: bool = True,
+    transform_config_path: Optional[Union[str, Path]] = None
+) -> tuple[nn.Module, torch.nn.Module]:
     """
-    Load a trained model from a checkpoint file.
+    Load a trained model from a checkpoint file with its transform configuration.
     
     This function automatically creates the correct model architecture and loads
     the trained weights. Supports ResNet-18, EfficientNet-B0, and MobileNet-V3.
+    Also loads the transform configuration to ensure consistent preprocessing.
     
     Args:
         checkpoint_path: Path to the .pth checkpoint file
@@ -35,23 +43,26 @@ def load_model(
         num_classes: Number of output classes (default: 2)
         device: Device to load the model on (default: auto-detect)
         eval_mode: Whether to set model to evaluation mode (default: True)
+        transform_config_path: Path to transform config JSON file.
+                              If None, tries to find it in the same directory as checkpoint.
+                              If not found, uses default ImageNet transforms.
     
     Returns:
-        Loaded model ready for inference
+        Tuple of (model, transform) - Loaded model and transform for inference
     
     Raises:
         FileNotFoundError: If checkpoint file doesn't exist
         ValueError: If architecture name is not supported
     
     Examples:
-        >>> # Load ResNet-18 model
-        >>> model = load_model('path/to/resnet18.pth', architecture='resnet18')
+        >>> # Load ResNet-18 model with transforms
+        >>> model, transform = load_model('path/to/resnet18.pth', architecture='resnet18')
         >>> 
-        >>> # Load EfficientNet-B0 model
-        >>> model = load_model('path/to/efficientnet.pth', architecture='efficientnet_b0')
-        >>> 
-        >>> # Load MobileNet-V3 model
-        >>> model = load_model('path/to/mobilenet.pth', architecture='mobilenet_v3')
+        >>> # Load with explicit transform config path
+        >>> model, transform = load_model(
+        ...     'path/to/model.pth',
+        ...     transform_config_path='path/to/transform_config.json'
+        ... )
     """
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -75,7 +86,25 @@ def load_model(
     if eval_mode:
         model.eval()
     
-    return model
+    # Load transform configuration
+    if transform_config_path is None:
+        # Try to find transform config in experiment directory
+        # Assumes checkpoint is in experiments/exp_name/models/best_model.pth
+        # and transform config is in experiments/exp_name/configs/transform_config.json
+        exp_dir = checkpoint_path.parent.parent
+        transform_config_path = exp_dir / "configs" / "transform_config.json"
+    
+    transform_config_path = Path(transform_config_path)
+    
+    if transform_config_path.exists():
+        print(f"Loading transform config from {transform_config_path}")
+        transform_config = load_transform_config(transform_config_path)
+        _, transform = create_transforms_from_config(transform_config)
+    else:
+        print(f"Transform config not found at {transform_config_path}, using default ImageNet transforms")
+        transform = get_val_transform()
+    
+    return model, transform
 
 
 # Backward compatibility: keep old function names
