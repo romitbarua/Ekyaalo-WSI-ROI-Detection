@@ -6,8 +6,6 @@ This matches the model architecture used during training in Ekyaalo_EfficientNet
 
 import torch
 import torch.nn as nn
-from typing import Optional
-
 try:
     import timm
 except ImportError:
@@ -17,24 +15,23 @@ except ImportError:
 
 
 def create_efficientnet_b0(
+    device: torch.device,
     num_classes: int = 2,
     pretrained: bool = True,
-    device: Optional[torch.device] = None
 ) -> nn.Module:
     """
     Create an EfficientNet-B0 model for binary classification.
+
+    Caller must resolve and pass device (e.g. via get_device() or config).
     
     Args:
+        device: Device to move the model to (required; caller owns device resolution)
         num_classes: Number of output classes (default: 2 for binary classification)
         pretrained: Whether to use pretrained weights (default: True)
-        device: Device to move the model to (default: auto-detect)
     
     Returns:
         EfficientNet-B0 model ready for training/inference
     """
-    if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
     # Create EfficientNet-B0 using timm
     model = timm.create_model(
         "efficientnet_b0",

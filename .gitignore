@@ -75,3 +75,6 @@ logs/
 Thumbs.db
 .DS_Store
 
+# Experiments
+experiments/
+

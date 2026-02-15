@@ -8,7 +8,6 @@ resources are limited.
 
 import torch
 import torch.nn as nn
-from typing import Optional
 
 
 class BaselineCNN(nn.Module):
@@ -96,17 +95,20 @@ class BaselineCNN(nn.Module):
 
 
 def create_baseline_cnn(
+    device: torch.device,
     num_classes: int = 2,
     input_channels: int = 3,
     base_channels: int = 32,
     num_blocks: int = 4,
     dropout: float = 0.5,
-    device: Optional[torch.device] = None
 ) -> nn.Module:
     """
     Create a baseline CNN model for binary classification.
+
+    Caller must resolve and pass device (e.g. via get_device() or config).
     
     Args:
+        device: Device to move the model to (required; caller owns device resolution)
         num_classes: Number of output classes (default: 2)
         input_channels: Number of input channels (default: 3 for RGB)
         base_channels: Number of channels in the first conv layer (default: 32)
@@ -114,24 +116,14 @@ def create_baseline_cnn(
         num_blocks: Number of convolutional blocks (default: 4)
                    More blocks = deeper network = more parameters
         dropout: Dropout probability for fully connected layers (default: 0.5)
-        device: Device to move the model to (default: auto-detect)
     
     Returns:
         Baseline CNN model ready for training/inference
     
     Examples:
-        >>> # Default small CNN
-        >>> model = create_baseline_cnn(num_classes=2)
-        >>> 
-        >>> # Larger CNN with more channels
-        >>> model = create_baseline_cnn(base_channels=64, num_blocks=5)
-        >>> 
-        >>> # Smaller CNN with fewer blocks
-        >>> model = create_baseline_cnn(base_channels=16, num_blocks=3)
+        >>> device = get_device()
+        >>> model = create_baseline_cnn(num_classes=2, device=device)
     """
-    if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
     model = BaselineCNN(
         num_classes=num_classes,
         input_channels=input_channels,

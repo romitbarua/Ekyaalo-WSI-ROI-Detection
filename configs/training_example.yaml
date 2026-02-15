@@ -47,5 +47,5 @@ random_seed: 42
 # save_dir: "models"
 # checkpoint_dir: "models/checkpoints"
 
-# Device (optional, auto-detects if not specified)
-# device: "cuda"  # or "cpu"
+# Device (optional, auto-detects if not specified: cuda → mps → cpu)
+# device: "cuda"  # or "mps" (Apple Silicon) or "cpu"

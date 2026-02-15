@@ -8,6 +8,7 @@ This module provides config-based training with support for:
 - K-fold cross-validation
 """
 
+import logging
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -25,7 +26,10 @@ from sklearn.metrics import (
 
 from .architectures import get_available_architectures
 from .load_model import load_model_from_config
-from src.data.transforms import TransformFactory, DEFAULT_TRANSFORM_CONFIG
+from src.utils.device import get_device_preference
+from src.visualization.visualize import plot_loss_curve, plot_accuracy_curve
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -61,7 +65,7 @@ class TrainingConfig:
     checkpoint_dir: Optional[str] = None
     
     # Device
-    device: Optional[str] = None  # 'cuda', 'cpu', or None for auto-detect
+    device: Optional[str] = None  # 'cuda', 'mps', 'cpu', or None for auto-detect
     
     def __post_init__(self):
         """Validate and set defaults."""
@@ -70,7 +74,7 @@ class TrainingConfig:
         if self.optimizer_params is None:
             self.optimizer_params = {}
         if self.device is None:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            self.device = get_device_preference()
 
 
 def setup_model(config: TrainingConfig) -> nn.Module:
@@ -96,7 +100,7 @@ def configure_training_mode(model: nn.Module, mode: str) -> None:
         # Freeze all parameters
         for param in model.parameters():
             param.requires_grad = False
-        print("All model parameters frozen.")
+        logger.info("All model parameters frozen.")
         
     elif mode == 'head_only':
         # Freeze backbone, only train classifier head
@@ -121,17 +125,17 @@ def configure_training_mode(model: nn.Module, mode: str) -> None:
                 for param in last_layer.parameters():
                     param.requires_grad = True
             else:
-                print("Warning: Could not find classifier head. Training all parameters.")
+                logger.warning("Could not find classifier head. Training all parameters.")
                 for param in model.parameters():
                     param.requires_grad = True
         
-        print("Only classifier head will be trained.")
+        logger.info("Only classifier head will be trained.")
         
     elif mode == 'fine_tune':
         # Train all parameters
         for param in model.parameters():
             param.requires_grad = True
-        print("All model parameters will be fine-tuned.")
+        logger.info("All model parameters will be fine-tuned.")
         
     else:
         raise ValueError(
@@ -187,7 +191,7 @@ def get_loss_function(config: TrainingConfig) -> nn.Module:
     elif config.loss_function.lower() == 'focal':
         # Focal loss implementation (if needed, can be added)
         # For now, fall back to cross entropy
-        print("Warning: Focal loss not implemented, using CrossEntropyLoss")
+        logger.warning("Focal loss not implemented, using CrossEntropyLoss")
         return nn.CrossEntropyLoss()
     else:
         raise ValueError(
@@ -329,17 +333,25 @@ def train(
     config: Union[TrainingConfig, Dict, str, Path],
     train_loader: DataLoader,
     val_loader: DataLoader,
-    save_path: Optional[Union[str, Path]] = None
+    save_paths: Dict[str, Union[str, Path]],
+    extra_eval_loaders: Optional[Dict[str, DataLoader]] = None,
+    save_path: Optional[Union[str, Path]] = None,
+    history_save_path: Optional[Union[str, Path]] = None,
+    save_history_every_n_epochs: int = 5,
 ) -> Dict[str, Any]:
     """
     Train a model based on configuration.
-    
+
     Args:
         config: Training configuration (TrainingConfig, dict, or path to YAML/JSON)
         train_loader: Training data loader
         val_loader: Validation data loader
+        save_paths: Paths for model, history, artifacts
+        extra_eval_loaders: Optional dict of name -> DataLoader for extra evaluation (e.g. train without aug). Logged as {name}_loss, {name}_acc, {name}_metrics.
         save_path: Path to save the trained model (optional)
-        
+        history_save_path: Path to save training_history.json (optional). If set, written every save_history_every_n_epochs and at end.
+        save_history_every_n_epochs: Write history to disk every N epochs (default 5).
+
     Returns:
         Dictionary containing training history and metrics
     """
@@ -367,26 +379,30 @@ def train(
         torch.cuda.manual_seed_all(config.random_seed)
     
     device = torch.device(config.device)
+
+    model_save_path = save_paths['model']
+    history_save_path = save_paths['history']
+    artifact_save_path = save_paths['artifacts']
     
     # Create model
-    print(f"Creating {config.architecture} model...")
+    logger.info("Creating %s model...", config.architecture)
     model = setup_model(config)
     
     # Configure training mode
-    print(f"Training mode: {config.training_mode}")
+    logger.info("Training mode: %s", config.training_mode)
     configure_training_mode(model, config.training_mode)
     
     # Count trainable parameters
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"Trainable parameters: {trainable_params:,} / {total_params:,}")
+    logger.info("Trainable parameters: %s / %s", f"{trainable_params:,}", f"{total_params:,}")
     
     # Setup loss and optimizer
     criterion = get_loss_function(config)
     optimizer = get_optimizer(model, config)
     
     # Training loop
-    print("\nStarting training...")
+    logger.info("Starting training...")
     best_val_acc = 0.0
     history = {
         'train_loss': [],
@@ -395,6 +411,11 @@ def train(
         'val_acc': [],
         'metrics': []
     }
+    if extra_eval_loaders:
+        for name in extra_eval_loaders:
+            history[f'{name}_loss'] = []
+            history[f'{name}_acc'] = []
+            history[f'{name}_metrics'] = []
     
     for epoch in range(1, config.num_epochs + 1):
         # Train
@@ -403,12 +424,18 @@ def train(
         )
         
         # Validate
-        val_loss, val_acc, labels, preds, probs = validate(
+        val_loss, val_acc, val_labels, val_preds, val_probs = validate(
             model, val_loader, criterion, device
         )
+        # Given the augmentations, we want to know how the model performs on the training set w/o augmentation
+        extra_results = {}
+        if extra_eval_loaders:
+            for name, loader in extra_eval_loaders.items():
+                loss, acc, labels, preds, probs = validate(model, loader, criterion, device)
+                extra_results[name] = (loss, acc, compute_metrics(labels, preds, probs))
         
         # Compute metrics
-        metrics = compute_metrics(labels, preds, probs)
+        metrics = compute_metrics(val_labels, val_preds, val_probs)
         
         # Update history
         history['train_loss'].append(train_loss)
@@ -416,13 +443,15 @@ def train(
         history['val_loss'].append(val_loss)
         history['val_acc'].append(val_acc)
         history['metrics'].append(metrics)
+        for name, (loss, acc, m) in extra_results.items():
+            history[f'{name}_loss'].append(loss)
+            history[f'{name}_acc'].append(acc)
+            history[f'{name}_metrics'].append(m)
         
-        # Print progress
-        print(
-            f"Epoch {epoch:02d}/{config.num_epochs} | "
-            f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f} | "
-            f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f} | "
-            f"AUC: {metrics.get('auc', 0):.4f}"
+        # Log progress
+        logger.info(
+            "Epoch %02d/%d | Train Loss: %.4f | Train Acc: %.4f | Val Loss: %.4f | Val Acc: %.4f | AUC: %.4f",
+            epoch, config.num_epochs, train_loss, train_acc, val_loss, val_acc, metrics.get('auc', 0)
         )
         
         # Save best model
@@ -432,9 +461,34 @@ def train(
                 save_path = Path(save_path)
                 save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), save_path)
-                print(f"Saved best model (val_acc: {val_acc:.4f}) to {save_path}")
+                logger.info("Saved best model (val_acc: %.4f) to %s", val_acc, save_path)
+
+        # Save history every N epochs (and on last epoch) for recovery if job stops
+        if history_save_path and (
+            epoch % save_history_every_n_epochs == 0 or epoch == config.num_epochs
+        ):
+            path = Path(history_save_path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "w") as f:
+                json.dump(
+                    {
+                        "history": history,
+                        "best_val_acc": best_val_acc,
+                        "config": asdict(config),
+                    },
+                    f,
+                    indent=2,
+                )
+            logger.info("Saved history to %s (epoch %d)", path, epoch)
+
+            # save the plots
+            if artifact_save_path:
+                plot_loss_curve(history, artifact_save_path)
+                plot_accuracy_curve(history=history, save_dir=artifact_save_path, extra_eval_loaders=extra_eval_loaders)
+                
+                logger.info("Saved plots to %s", artifact_save_path)
     
-    print(f"\nTraining complete! Best validation accuracy: {best_val_acc:.4f}")
+    logger.info("Training complete! Best validation accuracy: %.4f", best_val_acc)
     
     return {
         'model': model,
@@ -447,16 +501,16 @@ def train(
 def main():
     """Main function for model training."""
     # Example usage
-    print("Training script ready!")
-    print(f"Available architectures: {get_available_architectures()}")
-    print("\nExample config:")
+    logger.info("Training script ready!")
+    logger.info("Available architectures: %s", get_available_architectures())
+    logger.info("Example config:")
     example_config = TrainingConfig(
         architecture='resnet18',
         training_mode='head_only',
         num_epochs=10,
         batch_size=32
     )
-    print(yaml.dump(asdict(example_config), default_flow_style=False))
+    logger.info("\n%s", yaml.dump(asdict(example_config), default_flow_style=False))
 
 
 if __name__ == "__main__":

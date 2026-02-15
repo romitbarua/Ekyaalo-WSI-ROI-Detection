@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from typing import Optional, Dict, Any, Union
 
+from src.utils.device import get_device
 from .architectures import create_model
 from .architectures.custom_cnn import create_baseline_cnn
 
@@ -34,7 +35,7 @@ def load_model_from_config(
         Initialized model ready for training/inference
     """
     if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = get_device()
     elif isinstance(device, str):
         device = torch.device(device)
     

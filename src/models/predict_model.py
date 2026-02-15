@@ -12,6 +12,7 @@ import torch.nn as nn
 from pathlib import Path
 from typing import Optional, Union
 
+from src.utils.device import get_device
 from .architectures import create_model, get_available_architectures
 from src.data.transforms import (
     get_val_transform,
@@ -65,7 +66,7 @@ def load_model(
         ... )
     """
     if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = get_device()
     
     # Create the model architecture
     model = create_model(
@@ -86,11 +87,9 @@ def load_model(
     if eval_mode:
         model.eval()
     
-    # Load transform configuration
+    # Load transform configuration. We use only transform_config.json (saved at training time);
+    # we do not depend on the full training YAML.
     if transform_config_path is None:
-        # Try to find transform config in experiment directory
-        # Assumes checkpoint is in experiments/exp_name/models/best_model.pth
-        # and transform config is in experiments/exp_name/configs/transform_config.json
         exp_dir = checkpoint_path.parent.parent
         transform_config_path = exp_dir / "configs" / "transform_config.json"
     
@@ -111,10 +110,12 @@ def load_model(
 def create_resnet18_model(num_classes: int = 2, device: Optional[torch.device] = None) -> nn.Module:
     """
     Create a ResNet-18 model with a binary classification head.
-    
+
     Deprecated: Use create_model('resnet18', ...) instead.
     This function is kept for backward compatibility.
     """
+    if device is None:
+        device = get_device()
     return create_model('resnet18', num_classes=num_classes, device=device)
 
 

@@ -1,4 +1,4 @@
-,filepath,fname,class_name,label,slide_id,width,height,split
+,filepath,fname,class_name,label,slide_id,width,height,split,
 0,/data/raw/AnnotatedDataSet/Malignant/2025-04-16T21-36-26-272Z-C016-23-3.tif_lux_21615_luy_15353_h_172_w_145.png,2025-04-16T21-36-26-272Z-C016-23-3.tif_lux_21615_luy_15353_h_172_w_145.png,Malignant,1,C016-23-3,400,400,train
 1,/data/raw/AnnotatedDataSet/Malignant/2025-04-16T21-37-51-571Z-C2007-23-1.tif_lux_22897_luy_31761_h_125_w_178.png,2025-04-16T21-37-51-571Z-C2007-23-1.tif_lux_22897_luy_31761_h_125_w_178.png,Malignant,1,C2007-23-1,400,400,train
 2,/data/raw/AnnotatedDataSet/Malignant/2025-04-16T21-39-22-642Z-C857-22-1.tif_lux_17022_luy_43806_h_126_w_126.png,2025-04-16T21-39-22-642Z-C857-22-1.tif_lux_17022_luy_43806_h_126_w_126.png,Malignant,1,C857-22-1,400,400,train

@@ -12,6 +12,10 @@ transforms:
     saturation: 0.2
     hue: 0.1
   resize: [224, 224]  # Resize all images to 224x224 for consistent batching
+  mean: "RGB_MEAN_224"
+  std: "RGB_STD_224"
+  grayscale: false
+
 
 model_params:
   base_channels: 32

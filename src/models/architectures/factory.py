@@ -6,7 +6,7 @@ This provides a unified interface to create any supported architecture.
 
 import torch
 import torch.nn as nn
-from typing import Optional, Dict, Callable
+from typing import Dict, Callable
 
 from .resnet18 import create_resnet18
 from .efficientnet_b0 import create_efficientnet_b0
@@ -53,20 +53,22 @@ def get_available_architectures() -> list:
 
 def create_model(
     architecture: str,
+    device: torch.device,
     num_classes: int = 2,
     pretrained: bool = True,
-    device: Optional[torch.device] = None
 ) -> nn.Module:
     """
     Factory function to create a model by architecture name.
+
+    Caller must resolve and pass device (e.g. via get_device() or config).
     
     Args:
         architecture: Name of the architecture (case-insensitive, supports various formats)
                      Options: 'resnet18', 'efficientnet_b0', 'mobilenet_v3', 'custom_cnn'
+        device: Device to move the model to (required; caller owns device resolution)
         num_classes: Number of output classes (default: 2)
         pretrained: Whether to use pretrained weights (default: True)
                    Note: custom_cnn doesn't support pretrained weights
-        device: Device to move the model to (default: auto-detect)
     
     Returns:
         Model instance ready for training/inference
@@ -75,10 +77,8 @@ def create_model(
         ValueError: If architecture name is not supported
     
     Examples:
-        >>> model = create_model('resnet18', num_classes=2)
-        >>> model = create_model('EfficientNet-B0', num_classes=2)
-        >>> model = create_model('mobilenet_v3', num_classes=2)
-        >>> model = create_model('custom_cnn', num_classes=2)
+        >>> device = get_device()
+        >>> model = create_model('resnet18', num_classes=2, device=device)
     """
     # Normalize architecture name
     architecture = architecture.lower().replace('-', '_')
@@ -96,12 +96,12 @@ def create_model(
     # Baseline CNN doesn't support pretrained parameter
     if architecture in ['baseline_cnn', 'custom_cnn']:
         return create_fn(
+            device,
             num_classes=num_classes,
-            device=device
         )
     else:
         return create_fn(
+            device,
             num_classes=num_classes,
             pretrained=pretrained,
-            device=device
         )

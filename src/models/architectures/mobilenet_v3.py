@@ -6,8 +6,6 @@ This matches the model architecture used during training in Ekyaalo_MobileNet_V3
 
 import torch
 import torch.nn as nn
-from typing import Optional
-
 try:
     import timm
 except ImportError:
@@ -17,24 +15,23 @@ except ImportError:
 
 
 def create_mobilenet_v3(
+    device: torch.device,
     num_classes: int = 2,
     pretrained: bool = True,
-    device: Optional[torch.device] = None
 ) -> nn.Module:
     """
     Create a MobileNet-V3-Small model for binary classification.
+
+    Caller must resolve and pass device (e.g. via get_device() or config).
     
     Args:
+        device: Device to move the model to (required; caller owns device resolution)
         num_classes: Number of output classes (default: 2 for binary classification)
         pretrained: Whether to use pretrained weights (default: True)
-        device: Device to move the model to (default: auto-detect)
     
     Returns:
         MobileNet-V3-Small model ready for training/inference
     """
-    if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
     # Create MobileNet-V3-Small using timm
     model = timm.create_model(
         "mobilenetv3_small_100",
