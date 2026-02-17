@@ -397,7 +397,8 @@ def train(
     flop_counter = FlopCounterMode(mods=model, display=False, depth=None)
     with flop_counter:
         model(torch.randn((1,) + input_size).to(device))  # Creates (1, 3, 224, 224) tensor
-    logger.info("FLOPS: %s", flop_counter.get_total_flops())  # Also fix method name
+    flops = flop_counter.get_total_flops()
+    logger.info("FLOPS: %s", flops)  # Also fix method name
     model.train()
     
     # Configure training mode
@@ -417,6 +418,7 @@ def train(
     logger.info("Starting training...")
     best_val_acc = 0.0
     history = {
+        'flops': flops,
         'train_loss': [],
         'train_acc': [],
         'val_loss': [],
