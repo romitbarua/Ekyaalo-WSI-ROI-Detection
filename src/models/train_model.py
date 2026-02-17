@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torch.utils.flop_counter import FlopCounterMode
 from pathlib import Path
 from typing import Dict, Optional, Any, Union, Tuple
 import yaml
@@ -387,6 +388,17 @@ def train(
     # Create model
     logger.info("Creating %s model...", config.architecture)
     model = setup_model(config)
+
+    # Calculate FLOPS
+    model.eval()
+    sample_input = train_loader.dataset[0][0]  # This is a tensor
+    input_size = sample_input.shape  # e.g., (3, 224, 224)
+
+    flop_counter = FlopCounterMode(mods=model, display=False, depth=None)
+    with flop_counter:
+        model(torch.randn((1,) + input_size).to(device))  # Creates (1, 3, 224, 224) tensor
+    logger.info("FLOPS: %s", flop_counter.get_total_flops())  # Also fix method name
+    model.train()
     
     # Configure training mode
     logger.info("Training mode: %s", config.training_mode)

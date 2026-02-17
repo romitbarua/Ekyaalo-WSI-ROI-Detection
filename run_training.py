@@ -19,6 +19,7 @@ import logging
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
+from torch.utils.flop_counter import FlopCounterMode
 from pathlib import Path
 from datetime import datetime
 import json
