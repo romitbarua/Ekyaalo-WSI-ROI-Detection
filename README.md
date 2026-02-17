@@ -1,6 +1,6 @@
 # Ekyaalo WSI ROI Detection
 
-This repository will be used to train, evaluate, and compare several deep learning architectures for Region of Interest (ROI) detection on Whole Slide Images. The work contributes to the Ekyaalo initiative focused on expanding access to cytology-based cancer diagnostics in low-resource environments.
+This repository is for training, evaluating, and comparing deep learning architectures for Region of Interest (ROI) detection on Whole Slide Images (WSIs). The work contributes to the Ekyaalo initiative, focused on expanding access to cytology-based cancer diagnostics in low-resource environments.
 
 The models evaluated represent a range of architectural families, from lightweight convolutional neural networks to transformer-based models. The objective is to benchmark differences in accuracy, computational efficiency, and robustness across these methods.
 
@@ -16,48 +16,52 @@ The models evaluated represent a range of architectural families, from lightweig
 ## Repository Contents
 
 ### Data
-Each image used in the dataset is a patch of a whole slide. The models ingest a metadata.csv file, load the images & apply various transformations for robustness.
 
-The dataset is located in the `/data` directory. In the data directory, we have a metadata diretory, that houses the metadata.csv.
+Each image in the dataset is a patch of a whole slide. The models ingest a `metadata.csv` file, load the images, and apply various transformations for robustness.
 
-`
-Metatadata.csv
-     filepath: relative path to the iamge
-     fname: name of the file
-     class_name: classification of the image (malignant, suspicious, begnign)
-     label: label to be predicted by the classifier
-     slide_id: the id of the original whole slide
-     width: width in pixels
-     height: height in pixels
-     split: designated the train/val/test split
-`
-In some cases the label and class_name may not match exact. For example, often times suspicious and malignant are combined together with a label of 1.
+The dataset is located in the `/data` directory. In this directory, you will find a `metadata` subdirectory that houses the `metadata.csv` file.
 
-Each person using the repo will have to download the image data & save it in the data directory.
+```
+metadata.csv columns:
+    filepath:    relative path to the image
+    fname:       name of the file
+    class_name:  classification of the image (malignant, suspicious, benign)
+    label:       label to be predicted by the classifier
+    slide_id:    ID of the original whole slide
+    width:       width in pixels
+    height:      height in pixels
+    split:       designated train/val/test split
+```
 
-The dataset can be found here.
-[dataset](https://drive.google.com/drive/u/1/folders/1OdmAmI53EVXWIM_z50ReOr-x3EP9GwzU)
+In some cases the `label` and `class_name` may not match exactly. For example, suspicious and malignant are often combined with a label of 1.
 
-If you don't have access, please reach out to Brendan Frederick
+**Dataset Download:**  
+[Dataset Download Link](https://drive.google.com/drive/u/1/folders/1OdmAmI53EVXWIM_z50ReOr-x3EP9GwzU)
 
-**Creating the metadata.csv**
-If any changes are made to the dataset, including the adding or removal of images, we need to re-create the metadata.json.
+If you don't have access, please reach out to Brendan Frederick.
 
-To recreate the metadata, use /notebooks/data/generate_data_config.ipynb.
-To use this notebook:
-1. Update the USER_ROOT variable to your repo path
+**Creating the `metadata.csv`:**  
+If any changes are made to the dataset (adding or removing images), you will need to re-create the `metadata.csv`.
+
+To recreate it, use `/notebooks/data/generate_data_config.ipynb`.  
+Steps:
+1. Update the `USER_ROOT` variable to your repo path
 2. Update the label definition when calling `generate_metadata`
-3. Update the `to_csv` path
+3. Update the path in `to_csv` for output
 
-### Prepping For Model Runs
-When running a training, we need:
-1. A metadata.csv
-2. A run configuration
+---
 
-The goal of the configuration is to provide the model with all the key parameters to train a model. This includes architecture, training parameters, model parameters, data augmentations, etc.
+### Prepping for Model Runs
 
-An example configuration:
-`
+To run training, you need:  
+1. A `metadata.csv`  
+2. A run configuration YAML file
+
+The configuration file provides the model with all key parameters for training, including architecture, training parameters, model parameters, data augmentations, etc.
+
+**Example configuration:**
+
+```yaml
 architecture: "baseline_cnn"
 num_classes: 2
 pretrained: false
@@ -75,7 +79,6 @@ transforms:
   mean: "RGB_MEAN_224"
   std: "RGB_STD_224"
   grayscale: false
-
 
 model_params:
   base_channels: 32
@@ -96,22 +99,29 @@ optimizer_params:
 loss_function: "cross_entropy"
 
 random_seed: 42
-`
+```
+
+---
 
 ### Running Training
+
 Training is kicked off from: `run_training.py`
 
-Sample Command:
-`python run_training.py --config configs/training_example.yaml --experiment_name my_experiment`
+**Sample Command:**
+```sh
+python run_training.py --config configs/training_example.yaml --experiment_name my_experiment
+```
 
 This will create a directory for this training run where we will store:
-1. The model pt files
+1. The model `.pt` files
 2. Plots & train/val metrics
 3. Details about the training run
 
+---
+
 ### Evaluation and Comparison
 
-TBD
+_TBD_
 
 ---
 
@@ -134,22 +144,18 @@ This repository supports:
 
 Clone the repository:
 
-
+```sh
 git clone https://github.com/Bpfrederick/Ekyaalo-WSI-ROI-Detection.git
-
 cd Ekyaalo-WSI-ROI-Detection
-
-
+```
 
 Install dependencies:
 
-
+```sh
 pip install -r requirements.txt
+```
 
-
-
-Dataset paths are configured in the initial cells of each notebook and can be modified based on the user's environment.
-
+Dataset paths are configured in the initial cells of each notebook and can be modified based on your environment.
 
 ---
 
