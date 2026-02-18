@@ -40,6 +40,8 @@ In some cases the `label` and `class_name` may not match exactly. For example, s
 
 If you don't have access, please reach out to Brendan Frederick.
 
+When saving down the dataset, save down the AnnotatedDataSet from the google drive in data/raw
+
 **Creating the `metadata.csv`:**  
 If any changes are made to the dataset (adding or removing images), you will need to re-create the `metadata.csv`.
 
