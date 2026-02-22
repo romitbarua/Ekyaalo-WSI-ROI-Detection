@@ -1,0 +1,45 @@
+import torch
+
+def load_cytofm_teacher_backbone_weights(
+    model: torch.nn.Module,
+    ckpt_path: str,
+    device: torch.device,
+    strict: bool = False,
+) -> torch.nn.Module:
+    """
+    Load CytoFM pretrained weights into the ViT backbone.
+
+    CytoFM ckpt stores weights under ckpt['teacher'] with keys like:
+      - 'backbone.patch_embed.proj.weight'
+      - 'module.backbone.blocks.0.attn.qkv.weight'
+    We strip prefixes so they match the ViT backbone module names.
+
+    Args:
+        model: CytoFM ViT backbone model instance
+        ckpt_path: path to .pth checkpoint
+        device: torch device
+        strict: strict state_dict loading (False recommended for safety)
+    """
+    ckpt = torch.load(ckpt_path, map_location=device)
+
+    # CytoFM notebook uses ckpt['teacher']
+    teacher = ckpt.get("teacher", ckpt)
+
+    state_dict = {}
+    for k, v in teacher.items():
+        # drop common wrappers
+        if k.startswith("module."):
+            k = k[len("module."):]
+        # keep only backbone weights
+        if k.startswith("backbone."):
+            k = k[len("backbone."):]
+            state_dict[k] = v
+
+    missing, unexpected = model.load_state_dict(state_dict, strict=strict)
+
+    if missing:
+        print(f"[CytoFM] Missing keys (first 20): {missing[:20]}")
+    if unexpected:
+        print(f"[CytoFM] Unexpected keys (first 20): {unexpected[:20]}")
+
+    return model
