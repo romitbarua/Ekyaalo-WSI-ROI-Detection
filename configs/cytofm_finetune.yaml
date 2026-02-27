@@ -1,0 +1,29 @@
+# CytoFM: fine-tune full model (backbone + head)
+# Use this for best performance; more memory and time than head_only.
+
+# Model configuration
+architecture: "cytofm"
+num_classes: 2
+pretrained: true
+
+# CytoFM requires the pretrained backbone checkpoint (absolute path)
+model_params:
+  checkpoint_path: "models/cytofm_weights.pth"  # Set to your CytoFM .pth file
+
+# Training mode: backbone and head are both trained
+training_mode: "fine_tune"
+
+# Training hyperparameters (fine-tune often benefits from smaller LR)
+batch_size: 32
+num_epochs: 50
+learning_rate: 0.0001
+
+# Optimizer
+optimizer: "adam"
+optimizer_params: {}
+
+# Loss function
+loss_function: "cross_entropy"
+
+k_folds: 5
+random_seed: 42
