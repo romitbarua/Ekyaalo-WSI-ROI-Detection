@@ -206,8 +206,7 @@ def train(config, train_loader, val_loader, save_paths,
     n_total = sum(p.numel() for p in model.parameters())
     logger.info("Params: %s / %s trainable", f"{n_train:,}", f"{n_total:,}")
 
-    class_weights = compute_class_weights(train_loader, config.num_classes, config.device)
-    criterion = get_loss_function(config, class_weights)
+    criterion = get_loss_function(config)
     optimizer = get_optimizer(model, config)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.num_epochs)
 
