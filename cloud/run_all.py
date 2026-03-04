@@ -9,10 +9,14 @@ from pathlib import Path
 METADATA = "data/metadata/metadata_patient_split.csv"
 
 EXPERIMENTS = [
-    ("configs/custom_cnn_training.yaml",       "baseline_cnn"),
+    ("configs/custom_cnn_training.yaml",       "baseline_cnn_aug"),
+    ("configs/custom_cnn_no_aug.yaml",         "baseline_cnn_no_aug"),
     ("configs/training_example.yaml",          "resnet18"),
+    ("configs/resnet18_aug.yaml",              "resnet18_aug"),
     ("configs/efficientnet_b0_training.yaml",  "efficientnet_b0"),
+    ("configs/efficientnet_b0_aug.yaml",       "efficientnet_b0_aug"),
     ("configs/mobilenet_v3_training.yaml",     "mobilenet_v3"),
+    ("configs/mobilenet_v3_aug.yaml",          "mobilenet_v3_aug"),
     ("configs/cytofm_head_only.yaml",          "cytofm_head_only"),
     ("configs/cytofm_finetune.yaml",           "cytofm_finetune"),
 ]

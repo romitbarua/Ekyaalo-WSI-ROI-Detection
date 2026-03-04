@@ -23,7 +23,7 @@ training_mode: "fine_tune"
 # Training hyperparameters
 batch_size: 32
 num_epochs: 50
-learning_rate: 0.001
+learning_rate: 0.0001
 
 # Optimizer configuration
 optimizer: "adam"  # Options: adam, sgd

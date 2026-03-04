@@ -18,7 +18,9 @@ def find_experiments():
     out = {}
     for d in sorted(glob.glob("experiments/*")):
         p = Path(d)
-        if (p / "models" / "final_model.pth").exists():
+        best = p / "models" / "best_model.pth"
+        final = p / "models" / "final_model.pth"
+        if best.exists() or final.exists():
             out[p.name.rsplit("_", 2)[0]] = p
     return out
 
@@ -33,7 +35,9 @@ def evaluate(exp_dir, test_df):
         architecture=cfg["architecture"], num_classes=cfg.get("num_classes", 2),
         pretrained=False, model_params=cfg.get("model_params", {}), device=device,
     )
-    model.load_state_dict(torch.load(exp_dir / "models" / "final_model.pth", map_location=device))
+    best = exp_dir / "models" / "best_model.pth"
+    weights = best if best.exists() else exp_dir / "models" / "final_model.pth"
+    model.load_state_dict(torch.load(weights, map_location=device, weights_only=True))
     model.eval()
 
     all_y, all_p = [], []
