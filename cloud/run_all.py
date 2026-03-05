@@ -41,9 +41,10 @@ def results():
         if not h.exists():
             continue
         d = json.loads(h.read_text())
-        m = d.get("history", {}).get("metrics", [{}])[-1]
-        print(f"{name:20s}  acc={d.get('best_val_acc',0):.4f}  "
-              f"f1={m.get('f1',0):.4f}  auc={m.get('auc',0):.4f}")
+        best_auc = d.get("best_val_auc", 0)
+        if not best_auc:
+            best_auc = max((m.get("auc", 0) for m in d.get("history", {}).get("metrics", [{}])), default=0)
+        print(f"{name:20s}  acc={d.get('best_val_acc',0):.4f}  auc={best_auc:.4f}")
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
