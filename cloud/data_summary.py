@@ -16,16 +16,13 @@ if __name__ == "__main__":
     df = pd.read_csv(args.metadata)
     df["patient_id"] = df["slide_id"].apply(patient_of)
 
-    # slide_id can be broken (falls back to full filename in generate_metadata),
-    # so also extract .tif name from filepath as ground truth
-    def tif_of(fp):
-        if ".tif" in fp:
-            return fp.split("Z-")[-1].split(".tif")[0] + ".tif" if "Z-" in fp else fp.split("/")[-1].split("_lux")[0]
-        return fp.split("/")[-1]
-    df["tif"] = df["fname"].apply(tif_of)
+    # extract actual WSI name: the part between "Z-" and ".tif" in the filename
+    # e.g. "2025-04-16T21-36-24-411Z-C1432-23-1.tif_lux_..." -> "C1432-23-1"
+    df["wsi"] = df["fname"].str.extract(r'Z-(.+?)\.tif', expand=False).str.upper()
+    df.loc[df["wsi"].isna(), "wsi"] = df.loc[df["wsi"].isna(), "slide_id"]
 
     print(f"samples:  {len(df)}")
-    print(f"WSIs:     {df['tif'].nunique()}")
+    print(f"WSIs:     {df['wsi'].nunique()}")
     print(f"patients: {df['patient_id'].nunique()}")
 
     # per-class
@@ -35,7 +32,7 @@ if __name__ == "__main__":
     # per-patient breakdown
     pat = df.groupby("patient_id").agg(
         samples=("label", "size"),
-        wsis=("tif", "nunique"),
+        wsis=("wsi", "nunique"),
         label=("label", lambda x: int(x.mode()[0])),
         cls=("class_name", lambda x: x.mode()[0]),
     ).sort_values(["label", "patient_id"])
