@@ -62,7 +62,6 @@ def load_model_from_config(
             device=device,
             num_classes=num_classes,
             checkpoint_path=str(path),
-            freeze_backbone=True,
             **{k: v for k, v in params.items() if k != 'checkpoint_path'}
         )
 

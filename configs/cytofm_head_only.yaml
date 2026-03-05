@@ -1,28 +1,19 @@
-# CytoFM: train only the classifier head (backbone frozen)
-# Use this for faster training and lower memory; backbone stays pretrained.
-
-# Model configuration
 architecture: "cytofm"
 num_classes: 2
 pretrained: true
 
-# CytoFM requires the pretrained backbone checkpoint (absolute path)
 model_params:
-  checkpoint_path: "models/cytofm_weights.pth"  # Set to your CytoFM .pth file
+  checkpoint_path: "models/cytofm_weights.pth"
+  head_hidden_dim: 256
+  dropout: 0.1
 
-# Training mode: only the head is trained; backbone is frozen
 training_mode: "head_only"
 
-# Training hyperparameters (head-only can often use a higher LR)
 batch_size: 32
 num_epochs: 50
 learning_rate: 0.001
-
-# Optimizer
 optimizer: "adam"
 optimizer_params: {}
-
-# Loss function
 loss_function: "cross_entropy"
 
 k_folds: 5

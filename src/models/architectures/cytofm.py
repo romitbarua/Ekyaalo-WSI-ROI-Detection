@@ -346,33 +346,21 @@ def vit_large(patch_size=16, **kwargs):
 
 
 def load_cytofm(checkpoint_path: str, device: torch.device) -> nn.Module:
-    """
-    Load the CytoFM backbone from a checkpoint file.
-    Returns a frozen ViT backbone (no classifier head).
-    """
     ck = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
-    output_dict = dict(state_dict=dict())
+    sd = {}
     for key, value in ck["teacher"].items():
         if key.startswith("backbone"):
-            output_dict["state_dict"][key[9:]] = value
+            sd[key[9:]] = value
         elif key.startswith("module.backbone"):
-            output_dict["state_dict"][key[16:]] = value
+            sd[key[16:]] = value
 
     vit = vit_base(patch_size=16)
-    vit.load_state_dict(output_dict["state_dict"], strict=True)
-    vit.eval()
-    for p in vit.parameters():
-        p.requires_grad = False
-    vit = vit.to(device)
-    return vit
+    vit.load_state_dict(sd, strict=True)
+    return vit.to(device)
 
 
 class CytoFMClassifier(nn.Module):
-    """
-    CytoFM backbone + trainable classifier head.
-    Supports head-only training (backbone frozen) or full fine-tuning.
-    """
 
     def __init__(
         self,
@@ -380,35 +368,26 @@ class CytoFMClassifier(nn.Module):
         num_classes: int,
         feature_dim: int = 768,
         head_hidden_dim: Optional[int] = None,
-        dropout: float = 0.0,
-        freeze_backbone: bool = True,
+        dropout: float = 0.1,
     ):
         super().__init__()
         self.backbone = backbone
         self.feature_dim = feature_dim
         if head_hidden_dim is not None:
             self.head = nn.Sequential(
+                nn.LayerNorm(feature_dim),
                 nn.Dropout(dropout),
                 nn.Linear(feature_dim, head_hidden_dim),
-                nn.ReLU(inplace=True),
+                nn.GELU(),
                 nn.Dropout(dropout),
                 nn.Linear(head_hidden_dim, num_classes),
             )
         else:
             self.head = nn.Sequential(
+                nn.LayerNorm(feature_dim),
                 nn.Dropout(dropout),
                 nn.Linear(feature_dim, num_classes),
             )
-        if freeze_backbone:
-            self.freeze_backbone()
-
-    def freeze_backbone(self) -> None:
-        for param in self.backbone.parameters():
-            param.requires_grad = False
-
-    def unfreeze_backbone(self) -> None:
-        for param in self.backbone.parameters():
-            param.requires_grad = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         features = self.backbone(x)
@@ -419,15 +398,10 @@ def create_cytofm(
     device: torch.device,
     num_classes: int = 2,
     checkpoint_path: Optional[str] = None,
-    freeze_backbone: bool = True,
     head_hidden_dim: Optional[int] = None,
-    dropout: float = 0.0,
+    dropout: float = 0.1,
     **kwargs: Any,
 ) -> nn.Module:
-    """
-    Create a CytoFM model for classification (backbone + head).
-    Backbone is loaded from checkpoint_path and optionally frozen.
-    """
     if not checkpoint_path or not str(checkpoint_path).strip():
         raise ValueError("create_cytofm requires a non-empty checkpoint_path.")
     backbone = load_cytofm(checkpoint_path, device)
@@ -438,6 +412,5 @@ def create_cytofm(
         feature_dim=feature_dim,
         head_hidden_dim=head_hidden_dim,
         dropout=dropout,
-        freeze_backbone=freeze_backbone,
     )
     return model.to(device)
