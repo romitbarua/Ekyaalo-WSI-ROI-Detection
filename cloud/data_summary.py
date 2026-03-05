@@ -16,8 +16,16 @@ if __name__ == "__main__":
     df = pd.read_csv(args.metadata)
     df["patient_id"] = df["slide_id"].apply(patient_of)
 
+    # slide_id can be broken (falls back to full filename in generate_metadata),
+    # so also extract .tif name from filepath as ground truth
+    def tif_of(fp):
+        if ".tif" in fp:
+            return fp.split("Z-")[-1].split(".tif")[0] + ".tif" if "Z-" in fp else fp.split("/")[-1].split("_lux")[0]
+        return fp.split("/")[-1]
+    df["tif"] = df["fname"].apply(tif_of)
+
     print(f"samples:  {len(df)}")
-    print(f"slides:   {df['slide_id'].nunique()}")
+    print(f"WSIs:     {df['tif'].nunique()}")
     print(f"patients: {df['patient_id'].nunique()}")
 
     # per-class
@@ -27,15 +35,15 @@ if __name__ == "__main__":
     # per-patient breakdown
     pat = df.groupby("patient_id").agg(
         samples=("label", "size"),
-        slides=("slide_id", "nunique"),
+        wsis=("tif", "nunique"),
         label=("label", lambda x: int(x.mode()[0])),
-        cls=("class_name", "first"),
+        cls=("class_name", lambda x: x.mode()[0]),
     ).sort_values(["label", "patient_id"])
 
-    print(f"\n{'patient':<12s} {'cls':<12s} {'slides':>6s} {'samples':>8s}")
+    print(f"\n{'patient':<12s} {'cls':<12s} {'WSIs':>6s} {'samples':>8s}")
     print("-" * 40)
     for pid, r in pat.iterrows():
-        print(f"{pid:<12s} {r.cls:<12s} {r.slides:>6d} {r.samples:>8d}")
+        print(f"{pid:<12s} {r.cls:<12s} {r.wsis:>6d} {r.samples:>8d}")
 
     # split distribution (if present)
     if "split" in df.columns:
