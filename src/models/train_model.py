@@ -35,6 +35,9 @@ class TrainingConfig:
     optimizer: str = 'adam'
     optimizer_params: Optional[Dict[str, Any]] = None
     loss_function: str = 'cross_entropy'
+    label_smoothing: float = 0.0
+    max_grad_norm: float = 0
+    early_stop_patience: int = 0
     transforms: Dict[str, Any] = None
     k_folds: int = 5
     random_seed: int = 42
@@ -104,29 +107,32 @@ def get_optimizer(model: nn.Module, config: TrainingConfig) -> optim.Optimizer:
 def compute_class_weights(loader: DataLoader, n_classes: int, device: str) -> torch.Tensor:
     counts = torch.zeros(n_classes)
     for _, labels in loader:
-        for l in labels:
-            counts[l.item()] += 1
+        for c in labels:
+            counts[c.item()] += 1
     w = counts.sum() / (n_classes * counts.clamp(min=1))
-    logger.info("Class counts: %s  weights: %s", counts.tolist(), w.tolist())
+    logger.info("Class weights: %s (counts %s)", w.tolist(), counts.int().tolist())
     return w.to(device)
 
 
 def get_loss_function(config: TrainingConfig, class_weights: torch.Tensor = None) -> nn.Module:
     if config.loss_function.lower() in ('cross_entropy', 'focal'):
-        return nn.CrossEntropyLoss(weight=class_weights)
+        return nn.CrossEntropyLoss(weight=class_weights, label_smoothing=config.label_smoothing)
     raise ValueError(f"Unknown loss: {config.loss_function}")
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device):
+def train_one_epoch(model, loader, criterion, optimizer, device, max_grad_norm=0):
     model.train()
     total = correct = 0
     running_loss = 0.0
+    trainable = [p for p in model.parameters() if p.requires_grad]
     for images, labels in loader:
         images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
         out = model(images)
         loss = criterion(out, labels)
         loss.backward()
+        if max_grad_norm > 0:
+            nn.utils.clip_grad_norm_(trainable, max_grad_norm)
         optimizer.step()
         total += labels.size(0)
         correct += out.argmax(1).eq(labels).sum().item()
@@ -206,26 +212,28 @@ def train(config, train_loader, val_loader, save_paths,
     n_total = sum(p.numel() for p in model.parameters())
     logger.info("Params: %s / %s trainable", f"{n_train:,}", f"{n_total:,}")
 
-    criterion = get_loss_function(config)
+    class_weights = compute_class_weights(train_loader, config.num_classes, device)
+    criterion = get_loss_function(config, class_weights=class_weights)
     optimizer = get_optimizer(model, config)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.num_epochs, eta_min=1e-6)
 
+    cosine = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.num_epochs, eta_min=1e-6)
     warmup_epochs = min(5, config.num_epochs // 5)
-    warmup_scheduler = optim.lr_scheduler.LinearLR(
-        optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
-    )
-    scheduler = optim.lr_scheduler.SequentialLR(
-        optimizer, schedulers=[warmup_scheduler, scheduler], milestones=[warmup_epochs]
-    )
+    warmup = optim.lr_scheduler.LinearLR(optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs)
+    scheduler = optim.lr_scheduler.SequentialLR(optimizer, [warmup, cosine], milestones=[warmup_epochs])
 
+    best_val_auc = 0.0
     best_val_acc = 0.0
+    stale = 0
     history = dict(flops=flops, train_loss=[], train_acc=[], val_loss=[], val_acc=[], metrics=[])
     if extra_eval_loaders:
         for name in extra_eval_loaders:
             history.update({f'{name}_loss': [], f'{name}_acc': [], f'{name}_metrics': []})
 
     for epoch in range(1, config.num_epochs + 1):
-        train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, device)
+        train_loss, train_acc = train_one_epoch(
+            model, train_loader, criterion, optimizer, device,
+            max_grad_norm=config.max_grad_norm,
+        )
         val_loss, val_acc, val_labels, val_preds, val_probs = validate(model, val_loader, criterion, device)
 
         extra_results = {}
@@ -235,6 +243,7 @@ def train(config, train_loader, val_loader, save_paths,
                 extra_results[name] = (l, a, compute_metrics(lb, pr, pb))
 
         metrics = compute_metrics(val_labels, val_preds, val_probs)
+        val_auc = metrics.get('auc', 0)
 
         history['train_loss'].append(train_loss)
         history['train_acc'].append(train_acc)
@@ -251,24 +260,36 @@ def train(config, train_loader, val_loader, save_paths,
         logger.info(
             "Epoch %02d/%d | Train Loss: %.4f | Train Acc: %.4f | Val Loss: %.4f | Val Acc: %.4f | AUC: %.4f | LR: %.6f",
             epoch, config.num_epochs, train_loss, train_acc, val_loss, val_acc,
-            metrics.get('auc', 0), scheduler.get_last_lr()[0],
+            val_auc, scheduler.get_last_lr()[0],
         )
 
-        if val_acc > best_val_acc:
+        # track best by AUC (acc is misleading with class imbalance)
+        if val_auc > best_val_auc:
+            best_val_auc = val_auc
             best_val_acc = val_acc
+            stale = 0
             if model_save_path:
                 mp = Path(model_save_path)
                 mp.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), mp)
-                logger.info("Saved best model (val_acc: %.4f)", val_acc)
+                logger.info("Saved best model (auc=%.4f)", val_auc)
+        else:
+            stale += 1
 
         if history_save_path and (epoch % save_history_every_n_epochs == 0 or epoch == config.num_epochs):
             hp = Path(history_save_path)
             hp.parent.mkdir(parents=True, exist_ok=True)
-            hp.write_text(json.dumps(dict(history=history, best_val_acc=best_val_acc, config=asdict(config)), indent=2))
+            hp.write_text(json.dumps(dict(
+                history=history, best_val_auc=best_val_auc,
+                best_val_acc=best_val_acc, config=asdict(config),
+            ), indent=2))
             if artifact_save_path:
                 plot_loss_curve(history, artifact_save_path)
                 plot_accuracy_curve(history=history, save_dir=artifact_save_path, extra_eval_loaders=extra_eval_loaders)
 
-    logger.info("Training complete! Best val acc: %.4f", best_val_acc)
-    return dict(model=model, history=history, best_val_acc=best_val_acc, config=asdict(config))
+        if config.early_stop_patience > 0 and stale >= config.early_stop_patience:
+            logger.info("Early stop at epoch %d", epoch)
+            break
+
+    logger.info("Done. best auc=%.4f acc=%.4f", best_val_auc, best_val_acc)
+    return dict(model=model, history=history, best_val_acc=best_val_acc, best_val_auc=best_val_auc, config=asdict(config))
