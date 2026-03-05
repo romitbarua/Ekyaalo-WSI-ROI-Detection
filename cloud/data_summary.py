@@ -20,13 +20,29 @@ if __name__ == "__main__":
     # e.g. "2025-04-16T21-36-24-411Z-C1432-23-1.tif_lux_..." -> "C1432-23-1"
     df["wsi"] = df["fname"].str.extract(r'Z-(.+?)\.tif', expand=False).str.upper()
     matched = df["wsi"].notna().sum()
-    df.loc[df["wsi"].isna(), "wsi"] = df.loc[df["wsi"].isna(), "slide_id"]
+    unmatched = df[df["wsi"].isna()]["fname"]
+    print(f"\nFilename formats: {matched} matched Z-*.tif, {len(unmatched)} did not")
+    if len(unmatched) > 0:
+        print("Unmatched examples:")
+        for fn in unmatched.head(5):
+            print(f"  {fn}")
 
-    print(f"samples:  {len(df)}")
-    print(f"WSIs:     {df['wsi'].nunique()}  (regex matched {matched}/{len(df)})")
+    # for unmatched, try splitting on common patterns
+    def extract_wsi(fname):
+        # try Z-..tif pattern first
+        if "Z-" in fname and ".tif" in fname:
+            return fname.split("Z-")[1].split(".tif")[0].upper()
+        # try just the slide_id-like part before _lux or _x or similar
+        parts = fname.replace(".png", "").replace(".jpg", "").split("_lux")[0]
+        # if it looks like a slide name, use it
+        return parts.upper()
+
+    df["wsi"] = df["fname"].apply(extract_wsi)
+
+    print(f"\nsamples:  {len(df)}")
+    print(f"WSIs:     {df['wsi'].nunique()}")
     print(f"patients: {df['patient_id'].nunique()}")
-    # show a few extracted values
-    print(f"\nWSI sample: {df['wsi'].unique()[:5].tolist()}")
+    print(f"WSI sample: {df['wsi'].unique()[:10].tolist()}")
 
     # per-class
     for cls_name, g in df.groupby("class_name"):
