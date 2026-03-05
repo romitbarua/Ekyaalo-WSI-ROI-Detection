@@ -12,7 +12,7 @@ training_mode: "fine_tune"
 batch_size: 32
 num_epochs: 50
 learning_rate: 0.0001
-optimizer: "adam"
+optimizer: "adamw"
 optimizer_params:
   weight_decay: 0.01
 loss_function: "cross_entropy"

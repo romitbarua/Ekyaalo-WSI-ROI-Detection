@@ -11,9 +11,10 @@ training_mode: "head_only"
 
 batch_size: 32
 num_epochs: 50
-learning_rate: 0.001
-optimizer: "adam"
-optimizer_params: {}
+learning_rate: 0.0003
+optimizer: "adamw"
+optimizer_params:
+  weight_decay: 0.01
 loss_function: "cross_entropy"
 
 k_folds: 5

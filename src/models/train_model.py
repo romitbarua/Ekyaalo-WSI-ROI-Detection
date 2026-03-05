@@ -95,7 +95,7 @@ def configure_training_mode(model: nn.Module, mode: str) -> None:
 
 def get_optimizer(model: nn.Module, config: TrainingConfig) -> optim.Optimizer:
     params = [p for p in model.parameters() if p.requires_grad]
-    cls = {'adam': optim.Adam, 'sgd': optim.SGD}.get(config.optimizer.lower())
+    cls = {'adam': optim.Adam, 'adamw': optim.AdamW, 'sgd': optim.SGD}.get(config.optimizer.lower())
     if cls is None:
         raise ValueError(f"Unknown optimizer: {config.optimizer}")
     return cls(params, lr=config.learning_rate, **config.optimizer_params)
@@ -208,7 +208,15 @@ def train(config, train_loader, val_loader, save_paths,
 
     criterion = get_loss_function(config)
     optimizer = get_optimizer(model, config)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.num_epochs)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.num_epochs, eta_min=1e-6)
+
+    warmup_epochs = min(5, config.num_epochs // 5)
+    warmup_scheduler = optim.lr_scheduler.LinearLR(
+        optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
+    )
+    scheduler = optim.lr_scheduler.SequentialLR(
+        optimizer, schedulers=[warmup_scheduler, scheduler], milestones=[warmup_epochs]
+    )
 
     best_val_acc = 0.0
     history = dict(flops=flops, train_loss=[], train_acc=[], val_loss=[], val_acc=[], metrics=[])
