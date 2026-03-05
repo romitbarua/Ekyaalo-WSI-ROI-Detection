@@ -67,7 +67,7 @@ def print_confusion(df):
 def print_per_patient(df):
     print("\nper-patient accuracy:")
     stats = df.groupby("patient_id").agg(
-        n=("correct", "len"), acc=("correct", "mean"),
+        n=("correct", "size"), acc=("correct", "mean"),
         n_ben=("label", lambda x: (x == 0).sum()),
         n_mal=("label", lambda x: (x == 1).sum()),
     ).sort_values("acc")
