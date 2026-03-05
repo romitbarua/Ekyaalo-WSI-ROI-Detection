@@ -17,24 +17,48 @@ def patient_of(sid):
     p = sid.strip().upper().split("-")
     return f"{p[0]}-{p[1]}" if len(p) >= 2 else sid.upper()
 
+def _majority_label(df, patient_id):
+    """Per-patient majority class for stratification."""
+    return df.groupby(patient_id)["label"].agg(lambda x: int(x.mode()[0]))
+
 def split(df, val=0.15, test=0.15, seed=42):
-    patients = df["slide_id"].apply(patient_of).unique()
-    patients = np.random.RandomState(seed).permutation(patients)
-    n_te, n_va = max(1, round(len(patients)*test)), max(1, round(len(patients)*val))
-    labels = {p: "test" for p in patients[:n_te]}
-    labels.update({p: "val" for p in patients[n_te:n_te+n_va]})
-    labels.update({p: "train" for p in patients[n_te+n_va:]})
     df = df.copy()
     df["patient_id"] = df["slide_id"].apply(patient_of)
+
+    # stratify by per-patient majority label so class ratios stay consistent
+    pat_label = _majority_label(df, "patient_id")
+    rng = np.random.RandomState(seed)
+
+    labels = {}
+    for cls in pat_label.unique():
+        pats = pat_label[pat_label == cls].index.values
+        pats = rng.permutation(pats)
+        n_te = max(1, round(len(pats) * test))
+        n_va = max(1, round(len(pats) * val))
+        for p in pats[:n_te]:
+            labels[p] = "test"
+        for p in pats[n_te:n_te + n_va]:
+            labels[p] = "val"
+        for p in pats[n_te + n_va:]:
+            labels[p] = "train"
+
     df["split"] = df["patient_id"].map(labels)
     return df
 
 def kfold(df, k=5, seed=42):
-    patients = df["slide_id"].apply(patient_of).unique()
-    patients = np.random.RandomState(seed).permutation(patients)
-    fold_map = {p: i % k for i, p in enumerate(patients)}
     df = df.copy()
     df["patient_id"] = df["slide_id"].apply(patient_of)
+
+    pat_label = _majority_label(df, "patient_id")
+    rng = np.random.RandomState(seed)
+
+    fold_map = {}
+    for cls in pat_label.unique():
+        pats = pat_label[pat_label == cls].index.values
+        pats = rng.permutation(pats)
+        for i, p in enumerate(pats):
+            fold_map[p] = i % k
+
     df["fold"] = df["patient_id"].map(fold_map)
     return df
 
@@ -59,3 +83,9 @@ if __name__ == "__main__":
     dst = args.output or args.input.replace(".csv", "_patient_split.csv")
     df.to_csv(dst, index=False)
     print(dst)
+
+    if "split" in df.columns:
+        for s in ("train", "val", "test"):
+            sub = df[df["split"] == s]
+            counts = sub["label"].value_counts().sort_index().to_dict()
+            print(f"  {s:>5s}: n={len(sub)}  labels={counts}")
