@@ -14,9 +14,12 @@ META_SRC = "data/metadata/metadata.csv"
 FOLD_DIR = Path("data/metadata/folds")
 
 CONFIGS = [
-    ("configs/resnet18_aug.yaml",        "resnet18_aug"),
-    ("configs/efficientnet_b0_aug.yaml", "efficientnet_b0_aug"),
-    ("configs/mobilenet_v3_aug.yaml",    "mobilenet_v3_aug"),
+    ("configs/resnet18_aug.yaml",             "resnet18_aug_lr1e4"),
+    ("configs/resnet18_aug_lr1e3.yaml",       "resnet18_aug_lr1e3"),
+    ("configs/efficientnet_b0_aug.yaml",      "effnet_aug_lr1e4"),
+    ("configs/efficientnet_b0_aug_lr1e3.yaml","effnet_aug_lr1e3"),
+    ("configs/mobilenet_v3_aug.yaml",         "mobnet_aug_lr1e4"),
+    ("configs/mobilenet_v3_aug_lr1e3.yaml",   "mobnet_aug_lr1e3"),
 ]
 
 

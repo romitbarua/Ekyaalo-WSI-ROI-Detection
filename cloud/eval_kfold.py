@@ -15,9 +15,12 @@ from src.data.transforms import create_transforms_from_config
 FOLD_DIR = Path("data/metadata/folds")
 
 CONFIGS = [
-    "resnet18_aug",
-    "efficientnet_b0_aug",
-    "mobilenet_v3_aug",
+    "resnet18_aug_lr1e4",
+    "resnet18_aug_lr1e3",
+    "effnet_aug_lr1e4",
+    "effnet_aug_lr1e3",
+    "mobnet_aug_lr1e4",
+    "mobnet_aug_lr1e3",
 ]
 
 
