@@ -20,6 +20,7 @@ CONFIGS = [
     ("configs/efficientnet_b0_aug_lr1e3.yaml","effnet_aug_lr1e3"),
     ("configs/mobilenet_v3_aug.yaml",         "mobnet_aug_lr1e4"),
     ("configs/mobilenet_v3_aug_lr1e3.yaml",   "mobnet_aug_lr1e3"),
+    ("configs/cytofm_finetune.yaml",          "cytofm_finetune"),
 ]
 
 
@@ -56,9 +57,12 @@ def summarize(k):
                 continue
             d = json.loads(h.read_text())
             accs.append(d.get("best_val_acc", 0))
-            aucs.append(d["history"]["metrics"][-1].get("auc", 0))
+            best_auc = d.get("best_val_auc", 0)
+            if not best_auc:
+                best_auc = max((m.get("auc", 0) for m in d.get("history", {}).get("metrics", [{}])), default=0)
+            aucs.append(best_auc)
         if accs:
-            print(f"{name:<24s} acc={np.mean(accs):.4f}±{np.std(accs):.4f}  auc={np.mean(aucs):.4f}±{np.std(aucs):.4f}  [{', '.join(f'{a:.3f}' for a in aucs)}]")
+            print(f"{name:<24s} acc={np.mean(accs):.4f}±{np.std(accs):.4f}  auc={np.mean(aucs):.4f}±{np.std(aucs):.4f}")
 
 
 if __name__ == "__main__":
