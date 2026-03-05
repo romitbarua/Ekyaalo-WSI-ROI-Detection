@@ -22,7 +22,7 @@ transforms:
 
 batch_size: 32
 num_epochs: 50
-learning_rate: 0.0001
+learning_rate: 0.00005
 optimizer: "adamw"
 optimizer_params:
   weight_decay: 0.05
