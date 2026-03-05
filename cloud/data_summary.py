@@ -19,11 +19,14 @@ if __name__ == "__main__":
     # extract actual WSI name: the part between "Z-" and ".tif" in the filename
     # e.g. "2025-04-16T21-36-24-411Z-C1432-23-1.tif_lux_..." -> "C1432-23-1"
     df["wsi"] = df["fname"].str.extract(r'Z-(.+?)\.tif', expand=False).str.upper()
+    matched = df["wsi"].notna().sum()
     df.loc[df["wsi"].isna(), "wsi"] = df.loc[df["wsi"].isna(), "slide_id"]
 
     print(f"samples:  {len(df)}")
-    print(f"WSIs:     {df['wsi'].nunique()}")
+    print(f"WSIs:     {df['wsi'].nunique()}  (regex matched {matched}/{len(df)})")
     print(f"patients: {df['patient_id'].nunique()}")
+    # show a few extracted values
+    print(f"\nWSI sample: {df['wsi'].unique()[:5].tolist()}")
 
     # per-class
     for cls_name, g in df.groupby("class_name"):
