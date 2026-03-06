@@ -20,7 +20,6 @@ CONFIGS = [
     ("configs/efficientnet_b0_aug_lr1e3.yaml","effnet_aug_lr1e3"),
     ("configs/mobilenet_v3_aug.yaml",         "mobnet_aug_lr1e4"),
     ("configs/mobilenet_v3_aug_lr1e3.yaml",   "mobnet_aug_lr1e3"),
-    ("configs/cytofm_finetune.yaml",          "cytofm_finetune"),
 ]
 
 

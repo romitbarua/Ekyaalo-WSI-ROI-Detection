@@ -40,6 +40,7 @@ loss_function: "cross_entropy"  # Options: cross_entropy, focal
 
 # K-fold cross-validation (if using k-fold, set to > 1)
 k_folds: 5
+early_stop_patience: 15
 random_seed: 42
 
 # Paths (optional, can be set programmatically)

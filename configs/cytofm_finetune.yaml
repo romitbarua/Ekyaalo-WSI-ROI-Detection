@@ -21,7 +21,7 @@ transforms:
   resize: [224, 224]
 
 batch_size: 32
-num_epochs: 50
+num_epochs: 20
 learning_rate: 0.0001
 optimizer: "adamw"
 optimizer_params:
@@ -29,7 +29,7 @@ optimizer_params:
 loss_function: "cross_entropy"
 label_smoothing: 0.1
 max_grad_norm: 1.0
-early_stop_patience: 15
+early_stop_patience: 7
 
 k_folds: 5
 random_seed: 42

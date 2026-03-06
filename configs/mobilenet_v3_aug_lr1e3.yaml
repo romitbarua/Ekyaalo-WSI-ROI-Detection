@@ -16,7 +16,7 @@ transforms:
 training_mode: "fine_tune"
 
 batch_size: 32
-num_epochs: 50
+num_epochs: 20
 learning_rate: 0.001
 
 optimizer: "adam"
@@ -26,4 +26,5 @@ optimizer_params:
 loss_function: "cross_entropy"
 
 k_folds: 5
+early_stop_patience: 7
 random_seed: 42

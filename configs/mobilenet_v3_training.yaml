@@ -15,4 +15,5 @@ optimizer_params:
 loss_function: "cross_entropy"
 
 k_folds: 5
+early_stop_patience: 15
 random_seed: 42
