@@ -34,7 +34,7 @@ def run(config, name):
 
 def results():
     for _, name in EXPERIMENTS:
-        dirs = sorted(glob.glob(f"experiments/{name}_*"))
+        dirs = sorted(glob.glob(f"experiments/{name}_[0-9]*"))
         if not dirs:
             continue
         h = Path(dirs[-1]) / "metrics" / "training_history.json"
