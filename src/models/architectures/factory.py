@@ -1,7 +1,10 @@
 """
 Factory function to create models by architecture name.
 
-This provides a unified interface to create any supported architecture.
+This provides a unified interface for architectures that only need
+device, num_classes, and pretrained (e.g. ResNet, EfficientNet, MobileNet).
+Architectures that need extra params (baseline_cnn, cytofm) are created
+directly by load_model_from_config.
 """
 
 import torch
@@ -12,6 +15,14 @@ from .resnet18 import create_resnet18
 from .efficientnet_b0 import create_efficientnet_b0
 from .mobilenet_v3 import create_mobilenet_v3
 from .custom_cnn import create_baseline_cnn
+
+
+def _create_cytofm_via_factory(*args, **kwargs):
+    """CytoFM is created by load_model_from_config with model_params.checkpoint_path."""
+    raise ValueError(
+        "CytoFM must be created via load_model_from_config() with model_params.checkpoint_path. "
+        "Use architecture='cytofm' and set model_params.checkpoint_path in your config."
+    )
 
 
 # Registry of available architectures
@@ -32,6 +43,7 @@ ARCHITECTURE_REGISTRY: Dict[str, Callable] = {
     'custom_cnn': create_baseline_cnn,  # Alias for backward compatibility
     'custom-cnn': create_baseline_cnn,
     'cnn': create_baseline_cnn,
+    'cytofm': _create_cytofm_via_factory,
 }
 
 
@@ -60,39 +72,31 @@ def create_model(
     """
     Factory function to create a model by architecture name.
 
-    Caller must resolve and pass device (e.g. via get_device() or config).
-    
+    Used for architectures that only need device, num_classes, and pretrained
+    (resnet18, efficientnet_b0, mobilenet_v3). baseline_cnn and cytofm are
+    created by load_model_from_config, not here.
+
     Args:
-        architecture: Name of the architecture (case-insensitive, supports various formats)
-                     Options: 'resnet18', 'efficientnet_b0', 'mobilenet_v3', 'custom_cnn'
-        device: Device to move the model to (required; caller owns device resolution)
+        architecture: Name of the architecture (case-insensitive)
+        device: Device to move the model to (required)
         num_classes: Number of output classes (default: 2)
         pretrained: Whether to use pretrained weights (default: True)
-                   Note: custom_cnn doesn't support pretrained weights
-    
+
     Returns:
         Model instance ready for training/inference
-    
-    Raises:
-        ValueError: If architecture name is not supported
-    
-    Examples:
-        >>> device = get_device()
-        >>> model = create_model('resnet18', num_classes=2, device=device)
     """
     # Normalize architecture name
     architecture = architecture.lower().replace('-', '_')
-    
+
     if architecture not in ARCHITECTURE_REGISTRY:
         available = ', '.join(get_available_architectures())
         raise ValueError(
             f"Unknown architecture: '{architecture}'. "
             f"Available architectures: {available}"
         )
-    
-    # Get the creation function and call it
+
     create_fn = ARCHITECTURE_REGISTRY[architecture]
-    
+
     # Baseline CNN doesn't support pretrained parameter
     if architecture in ['baseline_cnn', 'custom_cnn']:
         return create_fn(
