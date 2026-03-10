@@ -14,12 +14,23 @@ META_SRC = "data/metadata/metadata.csv"
 FOLD_DIR = Path("data/metadata/folds")
 
 CONFIGS = [
+    # Baseline CNN
+    ("configs/custom_cnn_no_aug.yaml",        "baseline_cnn_noaug"),
+    ("configs/custom_cnn_training.yaml",      "baseline_cnn_aug"),
+    # Pretrained CNNs — no color jitter
+    ("configs/resnet18_noaug.yaml",           "resnet18_noaug"),
+    ("configs/mobilenet_v3_noaug.yaml",       "mobnet_noaug"),
+    ("configs/efficientnet_b0_noaug.yaml",    "effnet_noaug"),
+    # Pretrained CNNs — with augmentation (color jitter)
     ("configs/resnet18_aug.yaml",             "resnet18_aug_lr1e4"),
     ("configs/resnet18_aug_lr1e3.yaml",       "resnet18_aug_lr1e3"),
     ("configs/efficientnet_b0_aug.yaml",      "effnet_aug_lr1e4"),
     ("configs/efficientnet_b0_aug_lr1e3.yaml","effnet_aug_lr1e3"),
     ("configs/mobilenet_v3_aug.yaml",         "mobnet_aug_lr1e4"),
     ("configs/mobilenet_v3_aug_lr1e3.yaml",   "mobnet_aug_lr1e3"),
+    # CytoFM
+    ("configs/cytofm_head_only.yaml",         "cytofm_headonly"),
+    ("configs/cytofm_finetune.yaml",          "cytofm_finetune"),
 ]
 
 
@@ -64,12 +75,22 @@ def summarize(k):
             print(f"{name:<24s} acc={np.mean(accs):.4f}±{np.std(accs):.4f}  auc={np.mean(aucs):.4f}±{np.std(aucs):.4f}")
 
 
+def fold_exists(name, fold):
+    dirs = sorted(glob.glob(f"experiments/{name}_fold{fold}_*"))
+    if not dirs:
+        return False
+    h = Path(dirs[-1]) / "metrics" / "training_history.json"
+    return h.exists()
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--folds", type=int, default=5)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--no-shutdown", action="store_true")
     ap.add_argument("--only", type=str, default=None)
+    ap.add_argument("--skip-existing", action="store_true",
+                    help="Skip folds that already have completed results")
     args = ap.parse_args()
 
     k = make_folds(args.folds, args.seed)
@@ -77,6 +98,9 @@ if __name__ == "__main__":
 
     for cfg, name in cfgs:
         for i in range(k):
+            if args.skip_existing and fold_exists(name, i):
+                print(f"\n>>> {name} fold {i} — SKIPPING (already exists)")
+                continue
             print(f"\n>>> {name} fold {i}")
             run_one(cfg, name, i)
 

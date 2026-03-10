@@ -38,18 +38,27 @@ SINGLE_SPLIT_MODELS = [
 ]
 
 KFOLD_CONFIGS = [
-    "resnet18_aug_lr1e4", "resnet18_aug_lr1e3",
-    "effnet_aug_lr1e4",   "effnet_aug_lr1e3",
-    "mobnet_aug_lr1e4",   "mobnet_aug_lr1e3",
+    "baseline_cnn_noaug", "baseline_cnn_aug",
+    "resnet18_noaug",     "resnet18_aug_lr1e4", "resnet18_aug_lr1e3",
+    "mobnet_noaug",       "mobnet_aug_lr1e4",   "mobnet_aug_lr1e3",
+    "effnet_noaug",       "effnet_aug_lr1e4",   "effnet_aug_lr1e3",
+    "cytofm_headonly",    "cytofm_finetune",
 ]
 
 KFOLD_LABELS = {
+    "baseline_cnn_noaug": "Baseline CNN",
+    "baseline_cnn_aug":   "Baseline CNN + Aug",
+    "resnet18_noaug":     "ResNet-18",
     "resnet18_aug_lr1e4": "ResNet-18 Aug (LR 1e-4)",
     "resnet18_aug_lr1e3": "ResNet-18 Aug (LR 1e-3)",
+    "effnet_noaug":       "EfficientNet-B0",
     "effnet_aug_lr1e4":   "EffNet-B0 Aug (LR 1e-4)",
     "effnet_aug_lr1e3":   "EffNet-B0 Aug (LR 1e-3)",
+    "mobnet_noaug":       "MobileNet-V3",
     "mobnet_aug_lr1e4":   "MobNet-V3 Aug (LR 1e-4)",
     "mobnet_aug_lr1e3":   "MobNet-V3 Aug (LR 1e-3)",
+    "cytofm_headonly":    "CytoFM (head-only)",
+    "cytofm_finetune":    "CytoFM (fine-tune)",
 }
 
 ARCHITECTURES = [
