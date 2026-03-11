@@ -1,11 +1,4 @@
-"""
-Scripts to make predictions using trained models.
-
-This module contains functions for:
-- Loading trained models
-- Generating predictions on new data
-- Exporting tile-level predictions
-"""
+"""Prediction utilities for trained models."""
 
 import torch
 import torch.nn as nn
@@ -96,11 +89,9 @@ def load_model(
     transform_config_path = Path(transform_config_path)
     
     if transform_config_path.exists():
-        print(f"Loading transform config from {transform_config_path}")
         transform_config = load_transform_config(transform_config_path)
         _, transform = create_transforms_from_config(transform_config)
     else:
-        print(f"Transform config not found at {transform_config_path}, using default ImageNet transforms")
         transform = get_val_transform()
     
     return model, transform

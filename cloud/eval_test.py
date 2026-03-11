@@ -60,14 +60,13 @@ if __name__ == "__main__":
 
     meta = pd.read_csv(METADATA)
     test_df = meta[meta["split"] == "test"].copy()
-    print(f"test set: {len(test_df)} samples\n")
+    print(f"test set: {len(test_df)} samples")
 
     exps = find_experiments()
     if args.only:
         exps = {k: v for k, v in exps.items() if k == args.only}
 
     print(f"{'model':<22s} {'acc':>6s} {'f1':>6s} {'auc':>6s} {'prec':>6s} {'rec':>6s}")
-    print("-" * 58)
     for name, exp_dir in exps.items():
         try:
             m = evaluate(exp_dir, test_df)

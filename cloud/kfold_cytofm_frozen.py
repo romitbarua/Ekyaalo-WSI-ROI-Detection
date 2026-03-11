@@ -73,8 +73,7 @@ if __name__ == "__main__":
         val_df = df[df["split"] == "val"]
         test_df = df[df["split"] == "test"]
 
-        print(f"\n--- Fold {i} ---")
-        print(f"  train={len(train_df)}, val={len(val_df)}, test={len(test_df)}")
+        print(f"fold {i}: train={len(train_df)} val={len(val_df)} test={len(test_df)}")
 
         X_tr, y_tr = extract_features(backbone, train_df, tf)
         X_val, y_val = extract_features(backbone, val_df, tf)
@@ -112,19 +111,17 @@ if __name__ == "__main__":
     del backbone
     torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
-    print(f"\n{'='*60}")
-    print(f"  CYTOFM FROZEN + LOGREG — {k}-FOLD SUMMARY")
-    print(f"{'='*60}")
+    print(f"CytoFM frozen + LogReg {k}-fold:")
     aucs = [r["test_auc"] for r in fold_results]
     accs = [r["test_acc"] for r in fold_results]
     f1s = [r["test_f1"] for r in fold_results]
     for r in fold_results:
-        print(f"  Fold {r['fold']}: AUC={r['test_auc']:.4f}  Acc={r['test_acc']:.4f}  F1={r['test_f1']:.4f}")
-    print(f"  Mean:   AUC={np.mean(aucs):.4f}±{np.std(aucs):.4f}  "
-          f"Acc={np.mean(accs):.4f}±{np.std(accs):.4f}  "
-          f"F1={np.mean(f1s):.4f}±{np.std(f1s):.4f}")
+        print(f"  fold {r['fold']}: auc={r['test_auc']:.4f} acc={r['test_acc']:.4f} f1={r['test_f1']:.4f}")
+    print(f"  mean: auc={np.mean(aucs):.4f}±{np.std(aucs):.4f} "
+          f"acc={np.mean(accs):.4f}±{np.std(accs):.4f} "
+          f"f1={np.mean(f1s):.4f}±{np.std(f1s):.4f}")
 
     out = Path("experiments/cytofm_frozen_kfold_results.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(fold_results, indent=2))
-    print(f"\n  Results saved to {out}")
+    print(f"saved to {out}")

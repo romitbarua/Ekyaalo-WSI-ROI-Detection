@@ -99,12 +99,12 @@ if __name__ == "__main__":
     for cfg, name in cfgs:
         for i in range(k):
             if args.skip_existing and fold_exists(name, i):
-                print(f"\n>>> {name} fold {i} — SKIPPING (already exists)")
+                print(f"{name} fold {i}: skipped (exists)")
                 continue
-            print(f"\n>>> {name} fold {i}")
+            print(f"{name} fold {i}")
             run_one(cfg, name, i)
 
-    print("\n--- kfold results ---")
+    print("results:")
     summarize(k)
 
     if not args.no_shutdown:

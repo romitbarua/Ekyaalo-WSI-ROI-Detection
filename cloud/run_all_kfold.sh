@@ -15,3 +15,6 @@ echo "=== Step 3: Generate full report ==="
 
 echo ""
 echo "=== DONE ==="
+
+echo "Shutting down in 2 minutes..."
+sudo shutdown -h +2
