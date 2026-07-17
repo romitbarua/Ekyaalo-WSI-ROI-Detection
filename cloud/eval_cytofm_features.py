@@ -55,8 +55,7 @@ if __name__ == "__main__":
     X_val = scaler.transform(X_val)
     X_te = scaler.transform(X_te)
 
-    print(f"\n{'C':>8s} {'val_acc':>8s} {'val_auc':>8s} {'te_acc':>8s} {'te_auc':>8s}")
-    print("-" * 44)
+    print(f"{'C':>8s} {'val_acc':>8s} {'val_auc':>8s} {'te_acc':>8s} {'te_auc':>8s}")
     best, best_C = -1, 1.0
     for C in [0.01, 0.1, 1.0, 10.0]:
         clf = LogisticRegression(C=C, max_iter=2000, solver="lbfgs")
@@ -74,6 +73,4 @@ if __name__ == "__main__":
     clf.fit(X_tr, y_tr)
     te_pred = clf.predict(X_te)
     te_prob = clf.predict_proba(X_te)[:, 1]
-    print(f"\ntest (C={best_C}):")
-    print(classification_report(y_te, te_pred, digits=4))
-    print(f"auc={roc_auc_score(y_te, te_prob):.4f}  f1={f1_score(y_te, te_pred, average='weighted'):.4f}")
+    print(f"test (C={best_C}): auc={roc_auc_score(y_te, te_prob):.4f} f1={f1_score(y_te, te_pred, average='weighted'):.4f}")

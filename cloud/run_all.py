@@ -25,7 +25,7 @@ def run(config, name):
     if not Path(config).exists():
         print(f"skip {name}: {config} missing")
         return False
-    print(f"\n>>> {name}")
+    print(f"running {name}")
     rc = subprocess.run([
         sys.executable, "run_training.py",
         "--config", config, "--metadata", METADATA, "--experiment_name", name,
@@ -57,11 +57,10 @@ if __name__ == "__main__":
     exps = [(c, n) for c, n in EXPERIMENTS if not args.only or n == args.only]
     failed = [n for c, n in exps if not run(c, n)]
 
-    print("\n--- results ---")
+    print("results:")
     results()
     if failed:
         print(f"failed: {', '.join(failed)}")
 
     if not args.no_shutdown:
-        print("shutting down in 60s")
         subprocess.run(["sudo", "shutdown", "-h", "+1"])

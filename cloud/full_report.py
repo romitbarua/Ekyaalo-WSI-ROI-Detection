@@ -38,18 +38,27 @@ SINGLE_SPLIT_MODELS = [
 ]
 
 KFOLD_CONFIGS = [
-    "resnet18_aug_lr1e4", "resnet18_aug_lr1e3",
-    "effnet_aug_lr1e4",   "effnet_aug_lr1e3",
-    "mobnet_aug_lr1e4",   "mobnet_aug_lr1e3",
+    "baseline_cnn_noaug", "baseline_cnn_aug",
+    "resnet18_noaug",     "resnet18_aug_lr1e4", "resnet18_aug_lr1e3",
+    "mobnet_noaug",       "mobnet_aug_lr1e4",   "mobnet_aug_lr1e3",
+    "effnet_noaug",       "effnet_aug_lr1e4",   "effnet_aug_lr1e3",
+    "cytofm_headonly",    "cytofm_finetune",
 ]
 
 KFOLD_LABELS = {
+    "baseline_cnn_noaug": "Baseline CNN",
+    "baseline_cnn_aug":   "Baseline CNN + Aug",
+    "resnet18_noaug":     "ResNet-18",
     "resnet18_aug_lr1e4": "ResNet-18 Aug (LR 1e-4)",
     "resnet18_aug_lr1e3": "ResNet-18 Aug (LR 1e-3)",
+    "effnet_noaug":       "EfficientNet-B0",
     "effnet_aug_lr1e4":   "EffNet-B0 Aug (LR 1e-4)",
     "effnet_aug_lr1e3":   "EffNet-B0 Aug (LR 1e-3)",
+    "mobnet_noaug":       "MobileNet-V3",
     "mobnet_aug_lr1e4":   "MobNet-V3 Aug (LR 1e-4)",
     "mobnet_aug_lr1e3":   "MobNet-V3 Aug (LR 1e-3)",
+    "cytofm_headonly":    "CytoFM (head-only)",
+    "cytofm_finetune":    "CytoFM (fine-tune)",
 }
 
 ARCHITECTURES = [
@@ -72,9 +81,7 @@ DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def banner(title):
-    print(f"\n{'='*70}")
-    print(f"  {title}")
-    print(f"{'='*70}")
+    print(f"\n{title}")
 
 
 def load_and_eval(exp_dir, test_df):
@@ -109,12 +116,7 @@ def print_metrics(y, yhat, p):
     f1 = f1_score(y, yhat, average="weighted")
     cm = confusion_matrix(y, yhat)
     print(f"  AUC={auc:.4f}  Acc={acc:.4f}  F1={f1:.4f}  n={len(y)}")
-    print(f"\n  Confusion matrix (rows=actual, cols=predicted):")
-    print(f"  {'':>16s} Pred Benign  Pred Malig")
-    print(f"  {'Actual Benign':>16s} {cm[0][0]:>10d}  {cm[0][1]:>10d}")
-    print(f"  {'Actual Malig':>16s} {cm[1][0]:>10d}  {cm[1][1]:>10d}")
-    print()
-    print(classification_report(y, yhat, target_names=CLASSES, digits=4))
+    print(f"  Confusion: TN={cm[0][0]} FP={cm[0][1]} FN={cm[1][0]} TP={cm[1][1]}")
     return dict(auc=auc, acc=acc, f1=f1)
 
 
@@ -123,40 +125,25 @@ def find_exp(name):
     return Path(dirs[-1]) if dirs else None
 
 
-# ── Section 1: Dataset Summary ──────────────────────────────────────
-
 def section_dataset():
-    banner("SECTION 1: DATASET SUMMARY")
+    banner("Dataset Summary")
     meta = pd.read_csv(META)
     meta["patient_id"] = meta["slide_id"].apply(patient_of)
 
-    print(f"\n  Total samples : {len(meta)}")
-    print(f"  Unique slides : {meta['slide_id'].nunique()}")
-    print(f"  Unique patients: {meta['patient_id'].nunique()}")
-
-    print(f"\n  {'Split':<8s} {'N':>6s} {'Benign':>8s} {'Mal/Sus':>8s} {'%Benign':>8s}")
-    print(f"  {'-'*40}")
+    print(f"  samples={len(meta)} slides={meta['slide_id'].nunique()} patients={meta['patient_id'].nunique()}")
     for s in ("train", "val", "test"):
         sub = meta[meta["split"] == s]
         if sub.empty:
             continue
         b = (sub["label"] == 0).sum()
         m = (sub["label"] == 1).sum()
-        print(f"  {s:<8s} {len(sub):>6d} {b:>8d} {m:>8d} {100*b/len(sub):>7.1f}%")
+        print(f"  {s}: n={len(sub)} benign={b} malig={m} ({100*b/len(sub):.1f}% benign)")
 
-    print(f"\n  Per-class:")
-    for cls_name, g in meta.groupby("class_name"):
-        print(f"    {cls_name}: {len(g)} samples, {g['patient_id'].nunique()} patients")
-
-
-# ── Section 2: Model Complexity ─────────────────────────────────────
 
 def section_complexity():
-    banner("SECTION 2: MODEL COMPLEXITY (FLOPS & PARAMETERS)")
+    banner("Model Complexity")
     x = torch.randn(1, 3, 224, 224).to(DEV)
 
-    print(f"\n  {'Model':<20s} {'Params':>10s} {'GFLOPs':>10s}")
-    print(f"  {'-'*42}")
     for arch, label, params in ARCHITECTURES:
         try:
             m = load_model_from_config(arch, num_classes=2, pretrained=False,
@@ -165,57 +152,44 @@ def section_complexity():
             with FlopCounterMode(display=False) as fc:
                 m(x)
             flops = fc.get_total_flops()
-            print(f"  {label:<20s} {n_params/1e6:>9.1f}M {flops/1e9:>9.2f}")
+            print(f"  {label}: {n_params/1e6:.1f}M params, {flops/1e9:.2f} GFLOPs")
             del m
         except Exception as e:
-            print(f"  {label:<20s} ERROR: {e}")
+            print(f"  {label}: ERROR {e}")
     torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
 
-# ── Section 3: Single-Split Test Evaluation ─────────────────────────
-
 def section_single_split():
-    banner("SECTION 3: SINGLE-SPLIT TEST EVALUATION")
+    banner("Single-Split Test Evaluation")
     meta = pd.read_csv(META)
     test_df = meta[meta["split"] == "test"]
-    print(f"\n  Test set: {len(test_df)} samples\n")
+    print(f"  test set: {len(test_df)} samples")
 
     summary = []
     for name, label in SINGLE_SPLIT_MODELS:
         exp = find_exp(name)
         if not exp:
-            print(f"  {label}: no experiment found, skipping\n")
             continue
 
         h = json.loads((exp / "metrics" / "training_history.json").read_text())
-        cfg = yaml.safe_load((exp / "configs" / "training_config.yaml").read_text())
-        hist = h.get("history", {})
-        n_epochs = len(hist.get("train_loss", []))
         val_auc = h.get("best_val_auc", 0)
         val_acc = h.get("best_val_acc", 0)
-
-        print(f"  --- {label} ({name}) ---")
-        print(f"  Architecture: {cfg['architecture']}  LR: {cfg.get('learning_rate')}  Mode: {cfg.get('training_mode')}")
-        print(f"  Trained: {n_epochs} epochs  |  Val: acc={val_acc:.4f} auc={val_auc:.4f}")
 
         try:
             y, yhat, p = load_and_eval(exp, test_df)
             m = print_metrics(y, yhat, p)
             summary.append((label, val_acc, val_auc, m["acc"], m["auc"], m["f1"]))
         except Exception as e:
-            print(f"  ERROR: {e}\n")
+            print(f"  {label}: error {e}")
 
     if summary:
         print(f"\n  {'Model':<25s} {'ValAcc':>7s} {'ValAUC':>7s} {'TeAcc':>7s} {'TeAUC':>7s} {'TeF1':>7s}")
-        print(f"  {'-'*62}")
         for row in sorted(summary, key=lambda x: -x[4]):
             print(f"  {row[0]:<25s} {row[1]:>7.4f} {row[2]:>7.4f} {row[3]:>7.4f} {row[4]:>7.4f} {row[5]:>7.4f}")
 
 
-# ── Section 4: K-Fold Cross-Validation ──────────────────────────────
-
 def section_kfold():
-    banner("SECTION 4: K-FOLD CROSS-VALIDATION (TEST SET EVALUATION)")
+    banner("K-Fold Cross-Validation")
 
     n_folds = 0
     for i in range(20):
@@ -223,9 +197,9 @@ def section_kfold():
             break
         n_folds = i + 1
     if n_folds == 0:
-        print("\n  No fold CSVs found. Skipping.\n")
+        print("  no fold CSVs found")
         return
-    print(f"\n  Folds: {n_folds}")
+    print(f"  folds: {n_folds}")
 
     all_results = {}
     for name in KFOLD_CONFIGS:
@@ -245,9 +219,6 @@ def section_kfold():
             test_df = fold_df[fold_df["split"] == "test"]
             h = json.loads((exp / "metrics" / "training_history.json").read_text())
 
-            print(f"\n  --- {label} | Fold {i} ---")
-            print(f"  Val: acc={h.get('best_val_acc',0):.4f} auc={h.get('best_val_auc',0):.4f}")
-
             try:
                 y, yhat, p = load_and_eval(exp, test_df)
                 m = print_metrics(y, yhat, p)
@@ -255,15 +226,14 @@ def section_kfold():
                 m["val_acc"] = h.get("best_val_acc", 0)
                 fold_metrics.append(m)
             except Exception as e:
-                print(f"  ERROR: {e}\n")
+                print(f"  {label} fold {i}: error {e}")
 
         if fold_metrics:
             all_results[name] = fold_metrics
 
     if all_results:
-        banner("K-FOLD SUMMARY (averaged across folds)")
-        print(f"\n  {'Model':<28s} {'ValAUC':>10s} {'TeAUC':>10s} {'TeAcc':>10s} {'TeF1':>10s}")
-        print(f"  {'-'*70}")
+        banner("K-Fold Summary")
+        print(f"  {'Model':<28s} {'ValAUC':>10s} {'TeAUC':>10s} {'TeAcc':>10s} {'TeF1':>10s}")
         for name in KFOLD_CONFIGS:
             if name not in all_results:
                 continue
@@ -280,10 +250,8 @@ def section_kfold():
             print(f"  {label:<28s} {va:.4f}±{va_s:.4f} {ta:.4f}±{ta_s:.4f} {ac:.4f}±{ac_s:.4f} {f1:.4f}±{f1_s:.4f}")
 
 
-# ── Section 5: Training Curves ──────────────────────────────────────
-
 def section_curves():
-    banner("SECTION 5: TRAINING CURVES")
+    banner("Training Curves")
     for name, label in CURVE_MODELS:
         exp = find_exp(name)
         if not exp:
@@ -296,23 +264,19 @@ def section_curves():
         if not tl:
             continue
 
-        print(f"\n  --- {label} ({name}) ---")
-        print(f"  {'Epoch':>6s} {'TrLoss':>8s} {'VaLoss':>8s} {'VaAcc':>8s} {'VaAUC':>8s}")
-        print(f"  {'-'*42}")
+        print(f"  {label}:")
         for e in range(len(tl)):
             va_acc = metrics[e].get("accuracy", 0) if e < len(metrics) else 0
             va_auc = metrics[e].get("auc", 0) if e < len(metrics) else 0
             vl_e = vl[e] if e < len(vl) else 0
-            print(f"  {e+1:>6d} {tl[e]:>8.4f} {vl_e:>8.4f} {va_acc:>8.4f} {va_auc:>8.4f}")
+            print(f"    ep{e+1:02d} tr={tl[e]:.4f} va={vl_e:.4f} acc={va_acc:.4f} auc={va_auc:.4f}")
 
-
-# ── Section 6: CytoFM Frozen Features ──────────────────────────────
 
 def section_cytofm_frozen():
-    banner("SECTION 6: CYTOFM FROZEN FEATURES (LOGISTIC REGRESSION)")
+    banner("CytoFM Frozen Features (LogReg)")
     ckpt = "models/cytofm_weights.pth"
     if not Path(ckpt).exists():
-        print("\n  CytoFM checkpoint not found. Skipping.\n")
+        print("  CytoFM checkpoint not found")
         return
 
     backbone = load_cytofm(ckpt, DEV)
@@ -338,7 +302,7 @@ def section_cytofm_frozen():
         splits[s] = (feats, labels)
         b = (labels == 0).sum()
         m = (labels == 1).sum()
-        print(f"  {s:>5s}: n={len(labels)} ({b} benign, {m} malig)  features={feats.shape[1]}d")
+        print(f"  {s}: n={len(labels)} ({b} benign, {m} malig) {feats.shape[1]}d")
 
     X_tr, y_tr = splits["train"]
     X_val, y_val = splits["val"]
@@ -349,8 +313,6 @@ def section_cytofm_frozen():
     X_val = scaler.transform(X_val)
     X_te = scaler.transform(X_te)
 
-    print(f"\n  {'C':>8s} {'val_acc':>8s} {'val_auc':>8s} {'te_acc':>8s} {'te_auc':>8s}")
-    print(f"  {'-'*42}")
     best_score, best_C = -1, 1.0
     for C in [0.01, 0.1, 1.0, 10.0]:
         clf = LogisticRegression(C=C, max_iter=2000, solver="lbfgs")
@@ -359,7 +321,7 @@ def section_cytofm_frozen():
         tauc = roc_auc_score(y_te, clf.predict_proba(X_te)[:, 1])
         va = accuracy_score(y_val, clf.predict(X_val))
         ta = accuracy_score(y_te, clf.predict(X_te))
-        print(f"  {C:8.2f} {va:8.4f} {vauc:8.4f} {ta:8.4f} {tauc:8.4f}")
+        print(f"  C={C:.2f} val_acc={va:.4f} val_auc={vauc:.4f} te_acc={ta:.4f} te_auc={tauc:.4f}")
         if vauc > best_score:
             best_score, best_C = vauc, C
 
@@ -368,8 +330,7 @@ def section_cytofm_frozen():
     te_pred = clf.predict(X_te)
     te_prob = clf.predict_proba(X_te)[:, 1]
 
-    print(f"\n  Best C={best_C} (selected by val AUC)")
-    print(f"\n  Test results:")
+    print(f"  best C={best_C}")
     y, yhat, p = y_te, te_pred, np.column_stack([1 - te_prob, te_prob])
     print_metrics(y, yhat, p)
 
@@ -377,21 +338,12 @@ def section_cytofm_frozen():
     torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
 
-# ── Main ────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
-    print("\n" + "=" * 70)
-    print("  COMPREHENSIVE MODEL EVALUATION REPORT")
-    print("  WSI ROI Detection — Benign vs Malignant/Suspicious")
-    print("=" * 70)
-
+    print("WSI ROI Detection - Model Evaluation Report")
     section_dataset()
     section_complexity()
     section_single_split()
     section_kfold()
     section_curves()
     section_cytofm_frozen()
-
-    print("\n" + "=" * 70)
-    print("  END OF REPORT")
-    print("=" * 70)
+    print("\ndone")

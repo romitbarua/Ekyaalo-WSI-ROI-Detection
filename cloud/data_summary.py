@@ -21,9 +21,8 @@ if __name__ == "__main__":
     df["wsi"] = df["fname"].str.extract(r'Z-(.+?)\.tif', expand=False).str.upper()
     matched = df["wsi"].notna().sum()
     unmatched = df[df["wsi"].isna()]["fname"]
-    print(f"\nFilename formats: {matched} matched Z-*.tif, {len(unmatched)} did not")
+    print(f"filename formats: {matched} matched Z-*.tif, {len(unmatched)} unmatched")
     if len(unmatched) > 0:
-        print("Unmatched examples:")
         for fn in unmatched.head(5):
             print(f"  {fn}")
 
@@ -39,16 +38,11 @@ if __name__ == "__main__":
 
     df["wsi"] = df["fname"].apply(extract_wsi)
 
-    print(f"\nsamples:  {len(df)}")
-    print(f"WSIs:     {df['wsi'].nunique()}")
-    print(f"patients: {df['patient_id'].nunique()}")
-    print(f"WSI sample: {df['wsi'].unique()[:10].tolist()}")
+    print(f"samples={len(df)} WSIs={df['wsi'].nunique()} patients={df['patient_id'].nunique()}")
 
-    # per-class
     for cls_name, g in df.groupby("class_name"):
-        print(f"\n  {cls_name}: {len(g)} samples, {g['slide_id'].nunique()} slides, {g['patient_id'].nunique()} patients")
+        print(f"  {cls_name}: {len(g)} samples, {g['slide_id'].nunique()} slides, {g['patient_id'].nunique()} patients")
 
-    # per-patient breakdown
     pat = df.groupby("patient_id").agg(
         samples=("label", "size"),
         wsis=("wsi", "nunique"),
@@ -56,15 +50,12 @@ if __name__ == "__main__":
         cls=("class_name", lambda x: x.mode()[0]),
     ).sort_values(["label", "patient_id"])
 
-    print(f"\n{'patient':<12s} {'cls':<12s} {'WSIs':>6s} {'samples':>8s}")
-    print("-" * 40)
+    print(f"{'patient':<12s} {'cls':<12s} {'WSIs':>6s} {'samples':>8s}")
     for pid, r in pat.iterrows():
         print(f"{pid:<12s} {r.cls:<12s} {r.wsis:>6d} {r.samples:>8d}")
 
-    # split distribution (if present)
     if "split" in df.columns:
-        print(f"\n{'split':<8s} {'n':>6s} {'benign':>8s} {'malig':>8s} {'%benign':>8s}")
-        print("-" * 42)
+        print(f"{'split':<8s} {'n':>6s} {'benign':>8s} {'malig':>8s} {'%benign':>8s}")
         for s in ("train", "val", "test"):
             sub = df[df["split"] == s]
             if sub.empty:

@@ -58,33 +58,29 @@ def find_experiment(name):
 
 def print_confusion(df):
     cm = confusion_matrix(df.label, df.pred)
-    print("\nconfusion matrix (rows=true, cols=pred):")
-    print(f"{'':>12s} pred_ben  pred_mal")
-    print(f"{'true_ben':>12s}  {cm[0,0]:>6d}    {cm[0,1]:>6d}")
-    print(f"{'true_mal':>12s}  {cm[1,0]:>6d}    {cm[1,1]:>6d}")
+    print(f"confusion: TN={cm[0,0]} FP={cm[0,1]} FN={cm[1,0]} TP={cm[1,1]}")
 
 
 def print_per_patient(df):
-    print("\nper-patient accuracy:")
+    print("per-patient accuracy:")
     stats = df.groupby("patient_id").agg(
         n=("correct", "size"), acc=("correct", "mean"),
         n_ben=("label", lambda x: (x == 0).sum()),
         n_mal=("label", lambda x: (x == 1).sum()),
     ).sort_values("acc")
     for pid, r in stats.iterrows():
-        bar = "*" * int(r.acc * 20)
-        print(f"  {pid:<12s}  n={r.n:>3.0f}  ben={r.n_ben:>3.0f}  mal={r.n_mal:>3.0f}  acc={r.acc:.2f}  {bar}")
+        print(f"  {pid}: n={r.n:.0f} ben={r.n_ben:.0f} mal={r.n_mal:.0f} acc={r.acc:.2f}")
 
 
 def print_worst(df, n=10):
     fp = df[(df.label == 0) & (df.pred == 1)].nlargest(n, "conf_malignant")
     fn = df[(df.label == 1) & (df.pred == 0)].nsmallest(n, "conf_malignant")
-    print(f"\ntop {n} false positives (benign predicted malignant, high confidence):")
+    print(f"top {n} false positives:")
     for _, r in fp.iterrows():
-        print(f"  conf={r.conf_malignant:.3f}  patient={r.patient_id}  {Path(r.filepath).name}")
-    print(f"\ntop {n} false negatives (malignant predicted benign, low confidence):")
+        print(f"  conf={r.conf_malignant:.3f} patient={r.patient_id} {Path(r.filepath).name}")
+    print(f"top {n} false negatives:")
     for _, r in fn.iterrows():
-        print(f"  conf={r.conf_malignant:.3f}  patient={r.patient_id}  {Path(r.filepath).name}")
+        print(f"  conf={r.conf_malignant:.3f} patient={r.patient_id} {Path(r.filepath).name}")
 
 
 def dump_errors(df, out_dir, n=20):
@@ -101,7 +97,7 @@ def dump_errors(df, out_dir, n=20):
             src = dataset._resolve_path(r.filepath)
             name = f"conf{r.conf_malignant:.3f}_{r.patient_id}_{Path(r.filepath).name}"
             shutil.copy2(src, out / tag / name)
-    print(f"\ncopied {len(fp)+len(fn)} error images to {out}/")
+    print(f"copied {len(fp)+len(fn)} error images to {out}/")
 
 
 def find_optimal_threshold(df):
@@ -134,23 +130,22 @@ if __name__ == "__main__":
     df = predict_all(model, dataset, device)
 
     acc = df.correct.mean()
-    print(f"\noverall accuracy: {acc:.4f}")
+    print(f"overall accuracy: {acc:.4f}")
     print_confusion(df)
     print_per_patient(df)
     print_worst(df)
 
-    # threshold tuning on val
     val_df = meta[meta["split"] == "val"].copy().reset_index(drop=True)
     val_dataset = SlideDataset(val_df, transform=tf)
     val_preds = predict_all(model, val_dataset, device)
     opt_t, val_acc = find_optimal_threshold(val_preds)
     test_preds_tuned = (df.conf_malignant >= opt_t).astype(int)
     tuned_acc = (test_preds_tuned == df.label).mean()
-    print(f"\nthreshold tuning: optimal={opt_t:.2f} (val acc={val_acc:.4f}) -> test acc={tuned_acc:.4f} (was {acc:.4f})")
+    print(f"threshold tuning: optimal={opt_t:.2f} val_acc={val_acc:.4f} test_acc={tuned_acc:.4f} (was {acc:.4f})")
 
     Path("analysis").mkdir(exist_ok=True)
     if args.dump_errors > 0:
         dump_errors(df, f"analysis/{exp_dir.name}_errors", n=args.dump_errors)
 
     df.to_csv(f"analysis/{exp_dir.name}_predictions.csv", index=False)
-    print(f"\nper-image predictions saved to analysis/{exp_dir.name}_predictions.csv")
+    print(f"predictions saved to analysis/{exp_dir.name}_predictions.csv")

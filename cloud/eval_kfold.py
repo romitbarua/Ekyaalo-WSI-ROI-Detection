@@ -58,7 +58,6 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     print(f"{'model':<24s} {'acc':>14s} {'auc':>14s} {'f1':>14s}")
-    print("-" * 70)
 
     for name in CONFIGS:
         accs, aucs, f1s = [], [], []
