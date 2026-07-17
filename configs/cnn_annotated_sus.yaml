@@ -1,0 +1,44 @@
+# Dataset  : AnnotatedDataSet (new, ~4800 files)
+# Suspicious: merged as Malignant (sus) — use data/metadata/metadata_full.csv
+# Run cmd  : python run_training.py --config configs/cnn_annotated_sus.yaml \
+#                --metadata data/metadata/metadata_full.csv \
+#                --experiment_name cnn_annotated_sus
+
+architecture: "baseline_cnn"
+num_classes: 2
+pretrained: false
+
+model_params:
+  base_channels: 32
+  num_blocks: 4
+  dropout: 0.5
+  input_channels: 3
+
+training_mode: "fine_tune"
+
+transforms:
+  resize: [224, 224]
+  mean: "RGB_MEAN_224"
+  std: "RGB_STD_224"
+  grayscale: false
+  rotation: 15
+  horizontal_flip: true
+  vertical_flip: true
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+
+batch_size: 32
+num_epochs: 50
+learning_rate: 0.001
+
+optimizer: "adam"
+optimizer_params:
+  weight_decay: 0.0001
+
+loss_function: "cross_entropy"
+early_stop_patience: 15
+k_folds: 5
+random_seed: 42

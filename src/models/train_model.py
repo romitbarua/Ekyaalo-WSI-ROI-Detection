@@ -168,6 +168,7 @@ def compute_metrics(labels, preds, probs):
         precision=precision_score(labels, preds, average='weighted', zero_division=0),
         recall=recall_score(labels, preds, average='weighted', zero_division=0),
         f1=f1_score(labels, preds, average='weighted', zero_division=0),
+        per_class_acc=recall_score(labels, preds, average=None, zero_division=0).tolist(),
     )
     if probs.shape[1] == 2:
         m['auc'] = roc_auc_score(labels, probs[:, 1])
@@ -223,8 +224,9 @@ def train(config, train_loader, val_loader, save_paths,
 
     best_val_auc = 0.0
     best_val_acc = 0.0
+    best_val_per_class_acc = []
     stale = 0
-    history = dict(flops=flops, train_loss=[], train_acc=[], val_loss=[], val_acc=[], metrics=[])
+    history = dict(flops=flops, train_loss=[], train_acc=[], val_loss=[], val_acc=[], val_per_class_acc=[], metrics=[])
     if extra_eval_loaders:
         for name in extra_eval_loaders:
             history.update({f'{name}_loss': [], f'{name}_acc': [], f'{name}_metrics': []})
@@ -249,6 +251,7 @@ def train(config, train_loader, val_loader, save_paths,
         history['train_acc'].append(train_acc)
         history['val_loss'].append(val_loss)
         history['val_acc'].append(val_acc)
+        history['val_per_class_acc'].append(metrics.get('per_class_acc', []))
         history['metrics'].append(metrics)
         for name, (l, a, m) in extra_results.items():
             history[f'{name}_loss'].append(l)
@@ -267,6 +270,7 @@ def train(config, train_loader, val_loader, save_paths,
         if val_auc > best_val_auc:
             best_val_auc = val_auc
             best_val_acc = val_acc
+            best_val_per_class_acc = metrics.get('per_class_acc', [])
             stale = 0
             if model_save_path:
                 mp = Path(model_save_path)
@@ -281,7 +285,9 @@ def train(config, train_loader, val_loader, save_paths,
             hp.parent.mkdir(parents=True, exist_ok=True)
             hp.write_text(json.dumps(dict(
                 history=history, best_val_auc=best_val_auc,
-                best_val_acc=best_val_acc, config=asdict(config),
+                best_val_acc=best_val_acc,
+                best_val_per_class_acc=best_val_per_class_acc,
+                config=asdict(config),
             ), indent=2))
             if artifact_save_path:
                 plot_loss_curve(history, artifact_save_path)
@@ -291,5 +297,6 @@ def train(config, train_loader, val_loader, save_paths,
             logger.info("Early stop at epoch %d", epoch)
             break
 
-    logger.info("Done. best auc=%.4f acc=%.4f", best_val_auc, best_val_acc)
-    return dict(model=model, history=history, best_val_acc=best_val_acc, best_val_auc=best_val_auc, config=asdict(config))
+    logger.info("Done. best auc=%.4f acc=%.4f per_class=%s", best_val_auc, best_val_acc, best_val_per_class_acc)
+    return dict(model=model, history=history, best_val_acc=best_val_acc, best_val_auc=best_val_auc,
+                best_val_per_class_acc=best_val_per_class_acc, config=asdict(config))

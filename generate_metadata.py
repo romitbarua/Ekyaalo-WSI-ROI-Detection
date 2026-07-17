@@ -8,7 +8,8 @@ import pandas as pd
 from PIL import Image
 
 EXT = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
-LABELS = {"Benign": 0, "Malignant": 1, "Suspicious": 1}
+#LABELS = {"Benign": 0, "Malignant": 1, "Suspicious": 1}
+LABELS = {"Benign": 0, "Malignant": 1}
 
 def sid(name):
     # "2025-04-16T21-36-24-411Z-C1432-23-1.tif_lux_..." -> "C1432-23-1"
