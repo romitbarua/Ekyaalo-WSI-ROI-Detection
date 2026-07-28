@@ -33,6 +33,9 @@ ENV/
 
 # Data directories (should not be committed)
 data/raw/
+data/metadata/*.csv
+notebooks/data/ROI_by_class/
+notebooks/exploratory/diverse-samples/*.npy
 
 # Models and checkpoints
 models/*.pth
