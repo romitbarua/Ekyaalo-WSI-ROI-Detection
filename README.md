@@ -1,6 +1,6 @@
 # Ekyaalo WSI ROI Detection
 
-This repository contains a set of Jupyter notebooks used to train, evaluate, and compare several deep learning architectures for Region of Interest (ROI) detection on Whole Slide Images. The work contributes to the Ekyaalo initiative focused on expanding access to cytology-based cancer diagnostics in low-resource environments.
+This repository is for training, evaluating, and comparing deep learning architectures for Region of Interest (ROI) detection on Whole Slide Images (WSIs). The work contributes to the Ekyaalo initiative, focused on expanding access to cytology-based cancer diagnostics in low-resource environments.
 
 The models evaluated represent a range of architectural families, from lightweight convolutional neural networks to transformer-based models. The objective is to benchmark differences in accuracy, computational efficiency, and robustness across these methods.
 
@@ -15,33 +15,115 @@ The models evaluated represent a range of architectural families, from lightweig
 
 ## Repository Contents
 
-### Core Classification Workflows
+### Data
 
-**Ekyaalo_ResNet18_CNN.ipynb**  
-End-to-end workflow for training, validating, and evaluating a ResNet-18 classifier.
+Each image in the dataset is a patch of a whole slide. The models ingest a `metadata.csv` file, load the images, and apply various transformations for robustness.
 
-**Ekyaalo_EfficientNet_B0_CNN.ipynb**  
-Training and evaluation of EfficientNet-B0 under consistent preprocessing and k-fold structure.
+The dataset is located in the `/data` directory. In this directory, you will find a `metadata` subdirectory that houses the `metadata.csv` file.
 
-**Ekyaalo_MobileNet_V3_CNN.ipynb**  
-MobileNet-V3 implementation designed for lightweight and efficient ROI detection.
+```
+metadata.csv columns:
+    filepath:    relative path to the image
+    fname:       name of the file
+    class_name:  classification of the image (malignant, suspicious, benign)
+    label:       label to be predicted by the classifier
+    slide_id:    ID of the original whole slide
+    width:       width in pixels
+    height:      height in pixels
+    split:       designated train/val/test split
+```
 
-**Ekyaalo_Interactive_Heatmap.ipynb**  
-Notebook for interactively visualizing model-generated heatmaps on slide tiles.
+In some cases the `label` and `class_name` may not match exactly. For example, suspicious and malignant are often combined with a label of 1.
+
+**Dataset Download:**  
+[Dataset Download Link](https://drive.google.com/drive/u/1/folders/1OdmAmI53EVXWIM_z50ReOr-x3EP9GwzU)
+
+If you don't have access, please reach out to Brendan Frederick.
+
+When saving down the dataset, save down the AnnotatedDataSet from the google drive in data/raw
+
+**Creating the `metadata.csv`:**  
+If any changes are made to the dataset (adding or removing images), you will need to re-create the `metadata.csv`.
+
+To recreate it, use `/notebooks/data/generate_data_config.ipynb`.  
+Steps:
+1. Update the `USER_ROOT` variable to your repo path
+2. Update the label definition when calling `generate_metadata`
+3. Update the path in `to_csv` for output
+
+---
+
+### Prepping for Model Runs
+
+To run training, you need:  
+1. A `metadata.csv`  
+2. A run configuration YAML file
+
+The configuration file provides the model with all key parameters for training, including architecture, training parameters, model parameters, data augmentations, etc.
+
+**Example configuration:**
+
+```yaml
+architecture: "baseline_cnn"
+num_classes: 2
+pretrained: false
+
+transforms:
+  rotation: 15
+  horizontal_flip: true
+  vertical_flip: true
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+  resize: [224, 224]  # Resize all images to 224x224 for consistent batching
+  mean: "RGB_MEAN_224"
+  std: "RGB_STD_224"
+  grayscale: false
+
+model_params:
+  base_channels: 32
+  num_blocks: 4
+  dropout: 0.5
+  input_channels: 3
+
+training_mode: "fine_tune"
+
+batch_size: 32
+num_epochs: 50
+learning_rate: 0.001
+
+optimizer: "adam"
+optimizer_params:
+  weight_decay: 0.0001
+
+loss_function: "cross_entropy"
+
+random_seed: 42
+```
+
+---
+
+### Running Training
+
+Training is kicked off from: `run_training.py`
+
+**Sample Command:**
+```sh
+python run_training.py --config configs/training_example.yaml --experiment_name my_experiment
+```
+
+This will create a directory for this training run where we will store:
+1. The model `.pt` files
+2. Plots & train/val metrics
+3. Details about the training run
+
+---
 
 ### Evaluation and Comparison
 
-**Ekyaalo_Model_Comparison.ipynb**  
-Consolidated comparison across all architectures, including k-fold summaries, performance plots, and metric aggregation.
-
-**EfficientNet_B0_Advanced_Evaluation.ipynb**  
-Extended diagnostics and evaluation for EfficientNet-B0.
-
-**MobileNet_V3_Advanced_Evaluation.ipynb**  
-Deeper analysis of MobileNet-V3 results.
-
-**ResNet18_Advanced_Evaluation.ipynb**  
-Additional fold-level metrics, ROC curves, and confusion matrices for ResNet-18.
+_TBD_
 
 ---
 
@@ -64,44 +146,18 @@ This repository supports:
 
 Clone the repository:
 
-
+```sh
 git clone https://github.com/Bpfrederick/Ekyaalo-WSI-ROI-Detection.git
-
 cd Ekyaalo-WSI-ROI-Detection
-
-
+```
 
 Install dependencies:
 
-
+```sh
 pip install -r requirements.txt
+```
 
-
-
-Dataset paths are configured in the initial cells of each notebook and can be modified based on the user's environment.
-
----
-
-## Running the Workflows
-
-Each notebook is self-contained and can be executed in Jupyter Notebook, JupyterLab, or Google Colab.
-
-Typical workflow:
-
-1. Load and index WSI tiles  
-2. Apply preprocessing and augmentations  
-3. Construct stratified k-fold training and validation splits  
-4. Train the selected architecture  
-5. Save best model weights and tile-level predictions  
-6. Generate ROC curves, confusion matrices, and summary metrics  
-7. Use the comparison notebook to aggregate and compare performance across architectures  
-
-Outputs generated include:
-
-- `tile_preds_fold_{k}.csv`  
-- Best model weights saved as `.pth` files  
-- ROC and confusion matrix visualizations  
-- Summary CSV files reporting accuracy, precision, recall, F1, sensitivity, specificity, and AUC  
+Dataset paths are configured in the initial cells of each notebook and can be modified based on your environment.
 
 ---
 

@@ -1,0 +1,46 @@
+# Main configuration file for Ekyaalo WSI ROI Detection
+# Contains hyperparameters, paths, and model settings
+
+# Data paths
+data:
+  raw: "data/raw"
+  processed: "data/processed"
+  interim: "data/interim"
+  external: "data/external"
+
+# Model paths
+models:
+  save_dir: "models"
+  checkpoint_dir: "models/checkpoints"
+
+# Reports path
+reports:
+  figures_dir: "reports/figures"
+  output_dir: "reports"
+
+# Training parameters
+training:
+  batch_size: 32
+  num_epochs: 50
+  learning_rate: 0.001
+  k_folds: 5
+  random_seed: 42
+
+# Model architecture
+model:
+  architecture: "EfficientNet-B0"  # Options: ResNet-18, EfficientNet-B0, MobileNet-V3
+  num_classes: 2
+  pretrained: true
+
+# Data augmentation
+augmentation:
+  enabled: true
+  rotation_range: 15
+  horizontal_flip: true
+  vertical_flip: true
+
+# Evaluation
+evaluation:
+  metrics: ["accuracy", "precision", "recall", "f1", "auc"]
+  save_predictions: true
+

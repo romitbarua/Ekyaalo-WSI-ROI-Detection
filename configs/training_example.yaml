@@ -1,0 +1,52 @@
+# Example training configuration file
+# This demonstrates how to configure training for different architectures and modes
+
+# Model configuration
+architecture: "resnet18"  # Options: resnet18, efficientnet_b0, mobilenet_v3, baseline_cnn
+num_classes: 2
+pretrained: true
+
+# Model-specific parameters (optional, only used for baseline_cnn)
+model_params:
+  # For baseline_cnn:
+  # base_channels: 32
+  # num_blocks: 4
+  # dropout: 0.5
+  # input_channels: 3
+
+# Training mode: 'freeze', 'head_only', or 'fine_tune'
+# - freeze: Freeze all parameters (useful for feature extraction)
+# - head_only: Only train the classifier head (faster, less memory)
+# - fine_tune: Train all parameters (best performance, more memory)
+training_mode: "fine_tune"
+
+# Training hyperparameters
+batch_size: 32
+num_epochs: 50
+learning_rate: 0.0001
+
+# Optimizer configuration
+optimizer: "adam"  # Options: adam, sgd
+optimizer_params:
+  # For Adam:
+  # weight_decay: 0.0001
+  # betas: [0.9, 0.999]
+  # For SGD:
+  # momentum: 0.9
+  # weight_decay: 0.0001
+
+# Loss function
+loss_function: "cross_entropy"  # Options: cross_entropy, focal
+
+# K-fold cross-validation (if using k-fold, set to > 1)
+k_folds: 5
+early_stop_patience: 15
+random_seed: 42
+
+# Paths (optional, can be set programmatically)
+# data_path: "data/processed"
+# save_dir: "models"
+# checkpoint_dir: "models/checkpoints"
+
+# Device (optional, auto-detects if not specified: cuda → mps → cpu)
+# device: "cuda"  # or "mps" (Apple Silicon) or "cpu"

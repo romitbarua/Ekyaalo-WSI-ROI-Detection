@@ -1,0 +1,30 @@
+architecture: "efficientnet_b0"
+num_classes: 2
+pretrained: true
+
+transforms:
+  rotation: 15
+  horizontal_flip: true
+  vertical_flip: true
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+  resize: [224, 224]
+
+training_mode: "fine_tune"
+
+batch_size: 32
+num_epochs: 20
+learning_rate: 0.001
+
+optimizer: "adam"
+optimizer_params:
+  weight_decay: 0.0001
+
+loss_function: "cross_entropy"
+
+k_folds: 5
+early_stop_patience: 7
+random_seed: 42

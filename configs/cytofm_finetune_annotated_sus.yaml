@@ -1,0 +1,42 @@
+# Dataset  : AnnotatedDataSet (new, ~4800 files)
+# Suspicious: merged as Malignant (sus) — use data/metadata/metadata_full.csv
+# Run cmd  : python run_training.py --config configs/cytofm_finetune_annotated_sus.yaml \
+#                --metadata data/metadata/metadata_full.csv \
+#                --experiment_name cytofm_finetune_annotated_sus
+
+architecture: "cytofm"
+num_classes: 2
+pretrained: true
+
+model_params:
+  checkpoint_path: "models/cytofm_weights.pth"
+  head_hidden_dim: 256
+  dropout: 0.3
+
+training_mode: "fine_tune"
+
+transforms:
+  resize: [224, 224]
+  rotation: 15
+  horizontal_flip: true
+  vertical_flip: true
+  color_jitter:
+    brightness: 0.3
+    contrast: 0.3
+    saturation: 0.2
+    hue: 0.05
+
+batch_size: 32
+num_epochs: 20
+learning_rate: 0.0001
+
+optimizer: "adamw"
+optimizer_params:
+  weight_decay: 0.05
+
+loss_function: "cross_entropy"
+label_smoothing: 0.1
+max_grad_norm: 1.0
+early_stop_patience: 7
+k_folds: 5
+random_seed: 42
